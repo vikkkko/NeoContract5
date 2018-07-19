@@ -34,7 +34,7 @@ namespace SGAS
                 {
                     if (inputs[i].PrevIndex == 0)//如果 utxo n 为0 的话，是有可能是一个标记utxo的
                     {
-                        byte[] refundMan = Storage.Get(Storage.CurrentContext, inputs[i].PrevHash); //0.1
+                        var refundMan = Storage.Get(Storage.CurrentContext, inputs[i].PrevHash); //0.1
                         //检测到标记为待退回的 input
                         if (refundMan.Length > 0)
                         {
@@ -70,8 +70,8 @@ namespace SGAS
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
-                if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
-                    return false;
+                if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger()) return false;
+
                 if (method == "balanceOf") return BalanceOf((byte[])args[0]);
 
                 if (method == "decimals") return Decimals();
@@ -112,8 +112,7 @@ namespace SGAS
         public static TransferInfo GetTxInfo(byte[] txid)
         {
             var result = Storage.Get(Storage.CurrentContext, txid);
-            if (result.Length == 0)
-                return null;
+            if (result.Length == 0) return null;
             return Helper.Deserialize(result) as TransferInfo;
         }
 
@@ -187,18 +186,16 @@ namespace SGAS
             //0 号 output 是用户待退回的资产
             var preRefund = tx.GetOutputs()[0];
             //退回的资产不对，退回失败
-            if (preRefund.AssetId.AsBigInteger() != AssetId.AsBigInteger())
-                return false;
+            if (preRefund.AssetId.AsBigInteger() != AssetId.AsBigInteger()) return false;
+
             //不是转给自身，退回失败
-            if (preRefund.ScriptHash.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
-                return false;
-            //因为 Refund 的交易的 inputs 和 outputs 都来自合约地址，所以很可能多个人构造相同的交易。
-            //如果当前的交易已经被其它人标记为待退回，则退回失败
-            if (Storage.Get(Storage.CurrentContext, tx.Hash).Length > 0) //0.1
-                return false;
+            if (preRefund.ScriptHash.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
+            
+            //因为 Refund 的交易的 inputs 和 outputs 都来自合约地址，所以很可能多个人构造相同的交易。如果当前的交易已经被其它人标记为待退回，则退回失败
+            if (Storage.Get(Storage.CurrentContext, tx.Hash).Length > 0) return false; //0.1
+
             //不是本人申请的，退回失败
-            if (!Runtime.CheckWitness(from)) //0.2
-                return false;
+            if (!Runtime.CheckWitness(from)) return false; //0.2
 
             //付款人减少余额
             var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
@@ -220,7 +217,6 @@ namespace SGAS
 
             //通知
             OnRefundTarget(tx.Hash, from);
-
             return true;
         }
         
@@ -232,7 +228,6 @@ namespace SGAS
                 from = from,
                 to = to
             };
-
             Storage.Put(Storage.CurrentContext, txid, Helper.Serialize(info)); //1
         }
 
