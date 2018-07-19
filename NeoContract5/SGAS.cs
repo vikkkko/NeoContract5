@@ -2,36 +2,22 @@
 using Neo.SmartContract.Framework.Services.Neo;
 using Neo.SmartContract.Framework.Services.System;
 using Helper = Neo.SmartContract.Framework.Helper;
-using System;
 using System.ComponentModel;
 using System.Numerics;
 
-namespace Nep5Contract
+namespace SGAS
 {
-    public class ContractNep55Gas : SmartContract
+    public class SGAS : SmartContract
     {
-        public delegate void deleTransfer(byte[] from, byte[] to, BigInteger value);
         [DisplayName("transfer")]
         public static event deleTransfer Transferred;
+        public delegate void deleTransfer(byte[] from, byte[] to, BigInteger value);
 
-        public delegate void deleRefundTarget(byte[] txid, byte[] who);
         [DisplayName("onRefundTarget")]
         public static event deleRefundTarget OnRefundTarget;
+        public delegate void deleRefundTarget(byte[] txid, byte[] who);
 
         private static readonly byte[] AssetId = Helper.HexToBytes("e72d286979ee6cb1b7e65dfddfb2e384100b8d148e7758de42e4168b71792c60"); //全局资产的资产ID，逆序，这里是NeoGas
-
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("APMx9jcruEG8zQdBn3sFteS4dzGyrGxkrc");//管理员
-
-        private static readonly string name = "NEP5 GAS";
-        private static readonly string symbol = "SGAS";
-        private static readonly byte decimals = 8;
-
-        public class TransferInfo
-        {
-            public byte[] from;
-            public byte[] to;
-            public BigInteger value;
-        }
 
         public static object Main(string method, object[] args)
         {
@@ -111,15 +97,136 @@ namespace Nep5Contract
             return false;
         }
 
-        public static BigInteger TotalSupply() => Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
-
-        public static string Name() => name;
-
-        public static string Symbol() => symbol;
-
-        public static byte Decimals() => decimals;
-
         public static BigInteger BalanceOf(byte[] account) => Storage.Get(Storage.CurrentContext, account).AsBigInteger(); //0.1
+
+        public static byte Decimals() => 8;
+
+        public static TransferInfo GetTxInfo(byte[] txid)
+        {
+            var result = Storage.Get(Storage.CurrentContext, txid);
+            if (result.Length == 0)
+                return null;
+            return Helper.Deserialize(result) as TransferInfo;
+        }
+
+        private static bool IsPayable(byte[] to)
+        {
+            var c = Blockchain.GetContract(to); //0.1
+            return c == null || c.IsPayable;
+        }
+
+        public static bool Migrate(object[] args) => Admin.Migrate(args);
+
+        /// <summary>
+        /// 全局资产 -> NEP5资产
+        /// </summary>
+        public static bool MintTokens()
+        {
+            var tx = ExecutionEngine.ScriptContainer as Transaction;
+
+            //发送全局资产的人，接收NEP5资产的人
+            byte[] sender = null;
+            var inputs = tx.GetReferences();
+            for (var i = 0; i < inputs.Length; i++)
+            {
+                if (inputs[i].AssetId.AsBigInteger() == AssetId.AsBigInteger())
+                {
+                    sender = inputs[i].ScriptHash;
+                    break;
+                }
+            }
+
+            //兑换数量
+            var outputs = tx.GetOutputs();
+            ulong value = 0;
+            foreach (var output in outputs)
+            {
+                if (output.ScriptHash == ExecutionEngine.ExecutingScriptHash &&
+                    output.AssetId.AsBigInteger() == AssetId.AsBigInteger())
+                {
+                    value += (ulong)output.Value;
+                }
+            }
+
+            //增加合约资产的总量
+            var totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
+            totalSupply += value;
+            Storage.Put(Storage.CurrentContext, "totalSupply", totalSupply); //1
+
+            //分发资产
+            var amount = Storage.Get(Storage.CurrentContext, sender).AsBigInteger(); //0.1
+            Storage.Put(Storage.CurrentContext, sender, amount + value); //1
+
+            //通知
+            SetTxInfo(null, sender, amount);
+            Transferred(null, sender, value);
+            return true;
+        }
+
+        public static string Name() => "NEP5 GAS";
+
+        /// <summary>
+        /// NEP5资产 -> 全局资产
+        /// 用户在发起 Refund 时需要构造一个从合约地址到合约地址的转账，转账金额等于用户想退回的金额（如有找零也要找零到合约地址），然后智能合约会对其进行标记。
+        /// </summary>
+        public static bool Refund(byte[] from)
+        {
+            var tx = ExecutionEngine.ScriptContainer as Transaction;
+            //0 号 output 是用户待退回的资产
+            var preRefund = tx.GetOutputs()[0];
+            //退回的资产不对，退回失败
+            if (preRefund.AssetId.AsBigInteger() != AssetId.AsBigInteger())
+                return false;
+            //不是转给自身，退回失败
+            if (preRefund.ScriptHash.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
+                return false;
+            //因为 Refund 的交易的 inputs 和 outputs 都来自合约地址，所以很可能多个人构造相同的交易。
+            //如果当前的交易已经被其它人标记为待退回，则退回失败
+            if (Storage.Get(Storage.CurrentContext, tx.Hash).Length > 0) //0.1
+                return false;
+            //不是本人申请的，退回失败
+            if (!Runtime.CheckWitness(from)) //0.2
+                return false;
+
+            //付款人减少余额
+            var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
+            var preRefundValue = preRefund.Value;
+            if (fromAmount < preRefundValue)
+                return false;
+            else if (fromAmount == preRefundValue)
+                Storage.Delete(Storage.CurrentContext, from); //0.1
+            else
+                Storage.Put(Storage.CurrentContext, from, fromAmount - preRefundValue); //1
+
+            //对待退回的 output 进行标记（实际只标记 txid，output index 默认为 0）
+            Storage.Put(Storage.CurrentContext, tx.Hash, from); //1
+
+            //改变总量
+            var totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
+            totalSupply -= preRefundValue;
+            Storage.Put(Storage.CurrentContext, "totalSupply", totalSupply); //1
+
+            //通知
+            OnRefundTarget(tx.Hash, from);
+
+            return true;
+        }
+
+        private static void SetTxInfo(byte[] from, byte[] to, BigInteger value)
+        {
+            var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
+            TransferInfo info = new TransferInfo
+            {
+                from = from,
+                to = to
+            };
+
+            Storage.Put(Storage.CurrentContext, txid, Helper.Serialize(info)); //1
+        }
+
+        public static string Symbol() => "SGAS";
+
+        public static BigInteger TotalSupply() => Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
 
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
@@ -173,148 +280,6 @@ namespace Nep5Contract
             SetTxInfo(from, to, amount);
             Transferred(from, to, amount);
             return true;
-        }
-
-        /// <summary>
-        /// 全局资产 -> NEP5资产
-        /// </summary>
-        public static bool MintTokens()
-        {
-            var tx = ExecutionEngine.ScriptContainer as Transaction;
-
-            //发送全局资产的人，接收NEP5资产的人
-            byte[] sender = null;
-            var inputs = tx.GetReferences();
-            for (var i = 0; i < inputs.Length; i++)
-            {
-                if (inputs[i].AssetId.AsBigInteger() == AssetId.AsBigInteger())
-                {
-                    sender = inputs[i].ScriptHash;
-                    break;
-                }
-            }
-
-            //兑换数量
-            var outputs = tx.GetOutputs();
-            ulong value = 0;
-            foreach (var output in outputs)
-            {
-                if (output.ScriptHash == ExecutionEngine.ExecutingScriptHash &&
-                    output.AssetId.AsBigInteger() == AssetId.AsBigInteger())
-                {
-                    value += (ulong)output.Value;
-                }
-            }
-
-            //增加合约资产的总量
-            var totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
-            totalSupply += value;
-            Storage.Put(Storage.CurrentContext, "totalSupply", totalSupply); //1
-
-            //分发资产
-            var amount = Storage.Get(Storage.CurrentContext, sender).AsBigInteger(); //0.1
-            Storage.Put(Storage.CurrentContext, sender, amount + value); //1
-
-            //通知
-            SetTxInfo(null, sender, amount);
-            Transferred(null, sender, value);
-            return true;
-        }
-
-        private static void SetTxInfo(byte[] from, byte[] to, BigInteger value)
-        {
-            var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
-            TransferInfo info = new TransferInfo
-            {
-                from = from,
-                to = to
-            };
-
-            Storage.Put(Storage.CurrentContext, txid, Helper.Serialize(info)); //1
-        }
-
-        /// <summary>
-        /// NEP5资产 -> 全局资产
-        /// 用户在发起 Refund 时需要构造一个从合约地址到合约地址的转账，转账金额等于用户想退回的金额（如有找零也要找零到合约地址），然后智能合约会对其进行标记。
-        /// </summary>
-        public static bool Refund(byte[] from)
-        {
-            var tx = ExecutionEngine.ScriptContainer as Transaction;
-            //0 号 output 是用户待退回的资产
-            var preRefund = tx.GetOutputs()[0];
-            //退回的资产不对，退回失败
-            if (preRefund.AssetId.AsBigInteger() != AssetId.AsBigInteger())
-                return false;
-            //不是转给自身，退回失败
-            if (preRefund.ScriptHash.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger())
-                return false;
-            //因为 Refund 的交易的 inputs 和 outputs 都来自合约地址，所以很可能多个人构造相同的交易。
-            //如果当前的交易已经被其它人标记为待退回，则退回失败
-            if (Storage.Get(Storage.CurrentContext, tx.Hash).Length > 0) //0.1
-                return false;
-            //不是本人申请的，退回失败
-            if (!Runtime.CheckWitness(from)) //0.2
-                return false;
-
-            //付款人减少余额
-            var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
-            var preRefundValue = preRefund.Value;
-            if (fromAmount < preRefundValue)
-                return false;
-            else if (fromAmount == preRefundValue)
-                Storage.Delete(Storage.CurrentContext, from); //0.1
-            else
-                Storage.Put(Storage.CurrentContext, from, fromAmount - preRefundValue); //1
-
-            //对待退回的 output 进行标记（实际只标记 txid，output index 默认为 0）
-            Storage.Put(Storage.CurrentContext, tx.Hash, from); //1
-
-            //改变总量
-            var totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
-            totalSupply -= preRefundValue;
-            Storage.Put(Storage.CurrentContext, "totalSupply", totalSupply); //1
-
-            //通知
-            OnRefundTarget(tx.Hash, from);
-
-            return true;
-        }
-
-        public static TransferInfo GetTxInfo(byte[] txid)
-        {
-            byte[] result = Storage.Get(Storage.CurrentContext, txid);
-            if (result.Length == 0)
-                return null;
-            return Helper.Deserialize(result) as TransferInfo;
-        }
-
-        public static bool Migrate(object[] args)
-        {
-            if (args.Length != 1 && args.Length != 9)
-                return false;
-            byte[] currentScript = Blockchain.GetContract(ExecutionEngine.ExecutingScriptHash).Script; //0.1
-            byte[] newScript = (byte[])args[0];
-            if (newScript == currentScript)
-                return false;
-            if (!Runtime.CheckWitness(superAdmin)) //0.2
-                return false;
-            Contract.Migrate( //500
-                script: (byte[])args[0],
-                parameter_list: (byte[])args[1],
-                return_type: (byte)args[2],
-                need_storage: (bool)args[3],
-                name: (string)args[4],
-                version: (string)args[5],
-                author: (string)args[6],
-                email: (string)args[7],
-                description: (string)args[8]);
-            return true;
-        }
-
-        private static bool IsPayable(byte[] to)
-        {
-            var c = Blockchain.GetContract(to); //0.1
-            return c == null || c.IsPayable;
         }
     }
 }
