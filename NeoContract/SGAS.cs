@@ -70,37 +70,43 @@ namespace SGAS
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
-                if (method == "totalSupply") return TotalSupply();
-
-                if (method == "name") return Name();
-
-                if (method == "symbol") return Symbol();
+                if (method == "balanceOf") return BalanceOf((byte[])args[0]);
 
                 if (method == "decimals") return Decimals();
 
-                if (method == "balanceOf") return BalanceOf((byte[])args[0]);
+                if (method == "getRefundTarget") return GetRefundTarget((byte[])args[0]);
+
+                if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
+
+                if (method == "migrate") Migrate(args);
+
+                if (method == "mintTokens") return MintTokens();
+
+                if (method == "name") return Name();
+
+                if (method == "refund") return Refund((byte[])args[0]);
+
+                if (method == "symbol") return Symbol();
+
+                if (method == "totalSupply") return TotalSupply();
 
                 if (method == "transfer") return Transfer((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
 
                 if (method == "transfer_app") return TransferAPP((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
-
-                if (method == "mintTokens") return MintTokens();
-
-                if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
-
-                if (method == "refund") return Refund((byte[])args[0]);
-
-                if (method == "getRefundTarget") return Storage.Get(Storage.CurrentContext, (byte[])args[0]);
-
-                if (method == "migrate") Migrate(args);
             }
             return false;
         }
 
+        [DisplayName("balanceOf")]
         public static BigInteger BalanceOf(byte[] account) => Storage.Get(Storage.CurrentContext, account).AsBigInteger(); //0.1
 
+        [DisplayName("decimals")]
         public static byte Decimals() => 8;
 
+        [DisplayName("getRefundTarget")]
+        public static byte[] GetRefundTarget(byte[] txid) => Storage.Get(Storage.CurrentContext, txid); //0.1
+
+        [DisplayName("getTxInfo")]
         public static TransferInfo GetTxInfo(byte[] txid)
         {
             var result = Storage.Get(Storage.CurrentContext, txid);
@@ -115,11 +121,13 @@ namespace SGAS
             return c == null || c.IsPayable;
         }
 
+        [DisplayName("migrate")]
         public static bool Migrate(object[] args) => Admin.Migrate(args);
 
         /// <summary>
         /// 全局资产 -> NEP5资产
         /// </summary>
+        [DisplayName("mintTokens")]
         public static bool MintTokens()
         {
             var tx = ExecutionEngine.ScriptContainer as Transaction;
@@ -163,12 +171,14 @@ namespace SGAS
             return true;
         }
 
+        [DisplayName("name")]
         public static string Name() => "NEP5 GAS";
 
         /// <summary>
         /// NEP5资产 -> 全局资产
         /// 用户在发起 Refund 时需要构造一个从合约地址到合约地址的转账，转账金额等于用户想退回的金额（如有找零也要找零到合约地址），然后智能合约会对其进行标记。
         /// </summary>
+        [DisplayName("refund")]
         public static bool Refund(byte[] from)
         {
             var tx = ExecutionEngine.ScriptContainer as Transaction;
@@ -211,7 +221,7 @@ namespace SGAS
 
             return true;
         }
-
+        
         private static void SetTxInfo(byte[] from, byte[] to, BigInteger value)
         {
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
@@ -224,10 +234,13 @@ namespace SGAS
             Storage.Put(Storage.CurrentContext, txid, Helper.Serialize(info)); //1
         }
 
+        [DisplayName("symbol")]
         public static string Symbol() => "SGAS";
 
+        [DisplayName("totalSupply")]
         public static BigInteger TotalSupply() => Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
 
+        [DisplayName("transfer")]
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
             //形参校验
@@ -255,6 +268,7 @@ namespace SGAS
             return true;
         }
 
+        [DisplayName("transferAPP")]
         public static object TransferAPP(byte[] from, byte[] to, BigInteger amount, byte[] callscript)
         {
             //形参校验
