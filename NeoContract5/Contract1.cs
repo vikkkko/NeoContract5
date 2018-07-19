@@ -20,14 +20,22 @@ namespace Nep5Contract
 
         private static readonly byte[] AssetId = Helper.HexToBytes("e72d286979ee6cb1b7e65dfddfb2e384100b8d148e7758de42e4168b71792c60"); //全局资产的资产ID，逆序，这里是NeoGas
 
-        private static readonly byte[] superAdmin = Helper.ToScriptHash("Ad1HKAATNmFT5buNgSxspbW68f4XVSssSw");//管理员
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("APMx9jcruEG8zQdBn3sFteS4dzGyrGxkrc");//管理员
 
-        private static readonly string Name = "NEP5 GAS";
-        private static readonly string Symbol = "SGAS";
-        private static readonly byte Decimals = 8;
+        private static readonly string name = "NEP5 GAS";
+        private static readonly string symbol = "SGAS";
+        private static readonly byte decimals = 8;
+
+        public class TransferInfo
+        {
+            public byte[] from;
+            public byte[] to;
+            public BigInteger value;
+        }
 
         public static object Main(string method, object[] args)
         {
+            var callscript = ExecutionEngine.CallingScriptHash;
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 var tx = ExecutionEngine.ScriptContainer as Transaction;
@@ -76,49 +84,42 @@ namespace Nep5Contract
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
-                if (method == "totalSupply") return Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
+                if (method == "totalSupply") return TotalSupply();
 
-                if (method == "name") return Name;
+                if (method == "name") return Name();
 
-                if (method == "symbol") return Symbol;
+                if (method == "symbol") return Symbol();
 
-                if (method == "decimals") return Decimals;
+                if (method == "decimals") return Decimals();
 
-                if (method == "balanceOf") return Storage.Get(Storage.CurrentContext, (byte[])args[0]).AsBigInteger(); //0.1
+                if (method == "balanceOf") return BalanceOf((byte[])args[0]);
 
                 if (method == "transfer") return Transfer((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
 
+                if (method == "transfer_app") return TransferAPP((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
+
                 if (method == "mintTokens") return MintTokens();
+
+                if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
 
                 if (method == "refund") return Refund((byte[])args[0]);
 
                 if (method == "getRefundTarget") return Storage.Get(Storage.CurrentContext, (byte[])args[0]);
 
-                if (method == "upgrade")
-                {
-                    if (args.Length != 1 && args.Length != 9)
-                        return false;
-                    byte[] currentScript = Blockchain.GetContract(ExecutionEngine.ExecutingScriptHash).Script; //0.1
-                    byte[] newScript = (byte[])args[0];
-                    if (newScript == currentScript)
-                        return false;
-                    if (!Runtime.CheckWitness(superAdmin)) //0.2
-                        return false;
-                    Contract.Migrate( //500
-                        script: (byte[])args[0],
-                        parameter_list: (byte[])args[1],
-                        return_type: (byte)args[2],
-                        need_storage: (bool)args[3],
-                        name: (string)args[4],
-                        version: (string)args[5],
-                        author: (string)args[6],
-                        email: (string)args[7],
-                        description: (string)args[8]);
-                    return true;
-                }
+                if (method == "migrate") Migrate(args);
             }
             return false;
         }
+
+        public static BigInteger TotalSupply() => Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
+
+        public static string Name() => name;
+
+        public static string Symbol() => symbol;
+
+        public static byte Decimals() => decimals;
+
+        public static BigInteger BalanceOf(byte[] account) => Storage.Get(Storage.CurrentContext, account).AsBigInteger(); //0.1
 
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
@@ -142,10 +143,38 @@ namespace Nep5Contract
             Storage.Put(Storage.CurrentContext, to, toAmount + amount); //1
 
             //通知
+            SetTxInfo(from, to, amount);
             Transferred(from, to, amount);
             return true;
         }
-        
+
+        public static object TransferAPP(byte[] from, byte[] to, BigInteger amount, byte[] callscript)
+        {
+            //形参校验
+            if (from == to)
+                return true;
+            if (from.Length != 20 || to.Length != 20 || amount <= 0 || !IsPayable(to) || from.AsBigInteger() != callscript.AsBigInteger())
+                return false;
+
+            //付款人减少余额
+            var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
+            if (fromAmount < amount)
+                return false;
+            else if (fromAmount == amount)
+                Storage.Delete(Storage.CurrentContext, from); //0.1
+            else
+                Storage.Put(Storage.CurrentContext, from, fromAmount - amount); //1
+
+            //收款人增加余额
+            var toAmount = Storage.Get(Storage.CurrentContext, to).AsBigInteger(); //0.1
+            Storage.Put(Storage.CurrentContext, to, toAmount + amount); //1
+
+            //通知
+            SetTxInfo(from, to, amount);
+            Transferred(from, to, amount);
+            return true;
+        }
+
         /// <summary>
         /// 全局资产 -> NEP5资产
         /// </summary>
@@ -154,7 +183,7 @@ namespace Nep5Contract
             var tx = ExecutionEngine.ScriptContainer as Transaction;
 
             //发送全局资产的人，接收NEP5资产的人
-            byte[] sender = null; 
+            byte[] sender = null;
             var inputs = tx.GetReferences();
             for (var i = 0; i < inputs.Length; i++)
             {
@@ -187,9 +216,21 @@ namespace Nep5Contract
             Storage.Put(Storage.CurrentContext, sender, amount + value); //1
 
             //通知
+            SetTxInfo(null, sender, amount);
             Transferred(null, sender, value);
-
             return true;
+        }
+
+        private static void SetTxInfo(byte[] from, byte[] to, BigInteger value)
+        {
+            var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
+            TransferInfo info = new TransferInfo
+            {
+                from = from,
+                to = to
+            };
+
+            Storage.Put(Storage.CurrentContext, txid, Helper.Serialize(info)); //1
         }
 
         /// <summary>
@@ -237,9 +278,40 @@ namespace Nep5Contract
             OnRefundTarget(tx.Hash, from);
 
             return true;
-        }        
+        }
 
-        public static bool IsPayable(byte[] to)
+        public static TransferInfo GetTxInfo(byte[] txid)
+        {
+            byte[] result = Storage.Get(Storage.CurrentContext, txid);
+            if (result.Length == 0)
+                return null;
+            return Helper.Deserialize(result) as TransferInfo;
+        }
+
+        public static bool Migrate(object[] args)
+        {
+            if (args.Length != 1 && args.Length != 9)
+                return false;
+            byte[] currentScript = Blockchain.GetContract(ExecutionEngine.ExecutingScriptHash).Script; //0.1
+            byte[] newScript = (byte[])args[0];
+            if (newScript == currentScript)
+                return false;
+            if (!Runtime.CheckWitness(superAdmin)) //0.2
+                return false;
+            Contract.Migrate( //500
+                script: (byte[])args[0],
+                parameter_list: (byte[])args[1],
+                return_type: (byte)args[2],
+                need_storage: (bool)args[3],
+                name: (string)args[4],
+                version: (string)args[5],
+                author: (string)args[6],
+                email: (string)args[7],
+                description: (string)args[8]);
+            return true;
+        }
+
+        private static bool IsPayable(byte[] to)
         {
             var c = Blockchain.GetContract(to); //0.1
             return c == null || c.IsPayable;
