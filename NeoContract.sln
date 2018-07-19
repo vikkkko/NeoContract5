@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 15
 VisualStudioVersion = 15.0.27703.2035
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SGAS", "NeoContract5\SGAS.csproj", "{15DFB6B6-A57D-4A26-A5B7-EA1B2D102E20}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SGAS", "NeoContract\SGAS.csproj", "{15DFB6B6-A57D-4A26-A5B7-EA1B2D102E20}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{A4F2D281-A2E9-4950-AA18-098BF614FD6C}"
 EndProject

@@ -6,6 +6,7 @@ namespace SGAS
 {
     public static class Admin
     {
+        private static readonly byte[] superAdmin = Helper.ToScriptHash("APMx9jcruEG8zQdBn3sFteS4dzGyrGxkrc");
         /// <summary>
         /// 合约升级
         /// </summary>
@@ -17,7 +18,6 @@ namespace SGAS
             var newScript = (byte[])args[0];
             if (newScript == currentScript)
                 return false;
-            var superAdmin = Helper.ToScriptHash("APMx9jcruEG8zQdBn3sFteS4dzGyrGxkrc");//管理员
             if (!Runtime.CheckWitness(superAdmin)) //0.2
                 return false;
             Contract.Migrate( //500
