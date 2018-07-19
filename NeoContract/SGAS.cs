@@ -70,6 +70,8 @@ namespace SGAS
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
+                if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
+                    return false;
                 if (method == "balanceOf") return BalanceOf((byte[])args[0]);
 
                 if (method == "decimals") return Decimals();
