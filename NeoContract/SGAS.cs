@@ -94,7 +94,7 @@ namespace SGAS
 
                 if (method == "transfer") return Transfer((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
 
-                if (method == "transfer_app") return TransferAPP((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
+                if (method == "transferAPP") return TransferAPP((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
             }
             return false;
         }
