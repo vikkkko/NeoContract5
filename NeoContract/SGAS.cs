@@ -167,7 +167,7 @@ namespace SGAS
             Storage.Put(Storage.CurrentContext, sender, amount + value); //1
 
             //通知
-            SetTxInfo(null, sender, amount);
+            SetTxInfo(null, sender, value);
             Transferred(null, sender, value);
             return true;
         }
