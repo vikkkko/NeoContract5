@@ -67,6 +67,8 @@ namespace SGAS
                     outputAmount += output.Value;
                 }
                 return outputAmount == inputAmount;
+                //TODO: 管理员可以把非 GAS 的资产转走
+                //TODO: 管理员可以把地址内大于 SGAS TotalSupply 部分的 GAS 中没有标记为“待退回”的部分转走
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
@@ -226,7 +228,8 @@ namespace SGAS
             TransferInfo info = new TransferInfo
             {
                 from = from,
-                to = to
+                to = to,
+                value = value
             };
             Storage.Put(Storage.CurrentContext, txid, Helper.Serialize(info)); //1
         }
