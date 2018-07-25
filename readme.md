@@ -23,4 +23,6 @@ neo-gui 2.7.6
 | transfer        | see nep-5                          | neo-gui or neo-cli             | ✅           |
 | transferAPP     | transfer from other smart contract | neo-gui + other smart contract | 👩‍💻          |
 
-2018/7/27 Testing in progress.
+Useful Test Tools: [https://github.com/chenzhitong/ApplicationLogsTools](https://github.com/chenzhitong/ApplicationLogsTools)
+
+2018/7/28 Testing in progress.
