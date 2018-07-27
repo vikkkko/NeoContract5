@@ -21,9 +21,6 @@ namespace SGAS
 
         public static object Main(string method, object[] args)
         {
-            var callscript = ExecutionEngine.CallingScriptHash;
-            var currentHash = ExecutionEngine.ExecutingScriptHash;
-
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 var tx = ExecutionEngine.ScriptContainer as Transaction;
@@ -47,6 +44,7 @@ namespace SGAS
                         }
                     }
                 }
+                var currentHash = ExecutionEngine.ExecutingScriptHash;
                 //如果所有的 inputs 都没有被标记为待退回
                 BigInteger inputAmount = 0;
                 foreach (var refe in tx.GetReferences())
@@ -71,6 +69,8 @@ namespace SGAS
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
+                var callscript = ExecutionEngine.CallingScriptHash;
+
                 if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger()) return false;
 
                 if (method == "balanceOf") return BalanceOf((byte[])args[0]);
