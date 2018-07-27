@@ -22,45 +22,8 @@ namespace NeoContract.UnitTests
             //Path of blockchain folder
             Blockchain.RegisterBlockchain(new LevelDBBlockchain("C:\\Users\\chenz\\Desktop\\PrivateNet\\neo-gui 2.7.6\\Chain_0001142D"));
 
-            var tx = SGASTest.MintTokens();
-
-            if (tx == null)
-            {
-                Console.WriteLine("Create Transaction Failed");
-                Console.ReadLine();
-                return;
-            }
-
-            //Open wallet
-            var wallet = new Neo.Implementations.Wallets.NEP6.NEP6Wallet("0.json");
-            try
-            {
-                wallet.Unlock("1");
-            }
-            catch (Exception)
-            {
-                Console.WriteLine("password error");
-            }
-
-            //Sign in wallet
-            var context = new ContractParametersContext(tx);
-            wallet.Sign(context);
-            if (context.Completed)
-            {
-                Console.WriteLine("Sign Successful");
-                tx.Scripts = context.GetScripts();
-            }
-            else
-            {
-                Console.WriteLine("Sign Faild");
-            }
-            
-            Console.WriteLine("Verify Transaction:" + tx.Verify(new List<Transaction> { tx }));
-
-            Console.WriteLine("Raw Transaction:");
-            Console.WriteLine(tx.ToArray().ToHexString());
-
-            //Then Call neo-cli API：sendrawtransaction in postman.
+            //SGASTest.MintTokens();
+            SGASTest.Refund();
 
             Console.ReadLine();
         }

@@ -22,10 +22,11 @@ namespace SGAS
         public static object Main(string method, object[] args)
         {
             var callscript = ExecutionEngine.CallingScriptHash;
+            var currentHash = ExecutionEngine.ExecutingScriptHash;
+
             if (Runtime.Trigger == TriggerType.Verification)
             {
                 var tx = ExecutionEngine.ScriptContainer as Transaction;
-                var currentHash = ExecutionEngine.ExecutingScriptHash;
                 var inputs = tx.GetInputs();
                 var outputs = tx.GetOutputs();
 
@@ -67,8 +68,6 @@ namespace SGAS
                     outputAmount += output.Value;
                 }
                 return outputAmount == inputAmount;
-                //TODO: 管理员可以把非 GAS 的资产转走
-                //TODO: 管理员可以把地址内大于 SGAS TotalSupply 部分的 GAS 中没有标记为“待退回”的部分转走
             }
             else if (Runtime.Trigger == TriggerType.Application)
             {
@@ -98,6 +97,17 @@ namespace SGAS
 
                 if (method == "transferAPP") return TransferAPP((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
             }
+            //else if (Runtime.Trigger == TriggerType.VerificationR) //向后兼容
+            //{
+            //    if (method != "mintTokens") return false;
+            //    var tx = ExecutionEngine.ScriptContainer as Transaction;
+            //    foreach (var output in tx.GetOutputs())
+            //    {
+            //        if (output.ScriptHash == currentHash && output.AssetId.AsBigInteger() != AssetId.AsBigInteger())
+            //            return false;
+            //    }
+            //    return true;
+            //}
             return false;
         }
 
