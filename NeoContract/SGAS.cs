@@ -157,6 +157,8 @@ namespace SGAS
                 }
             }
 
+            if (sender.AsBigInteger() == ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
+
             //兑换数量
             var outputs = tx.GetOutputs();
             ulong value = 0;

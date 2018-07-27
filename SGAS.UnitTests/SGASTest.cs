@@ -132,31 +132,32 @@ namespace NeoContract.UnitTests
                 verificationScript = sb.ToArray();
             }
             var scriptHash = new UInt160("0xf5d124ec167db159c9cfec1916121f352042ddbb".Remove(0, 2).HexToBytes().Reverse().ToArray());
-            //var applicationScript = new byte[0];
-            //using (ScriptBuilder sb = new ScriptBuilder())
-            //{
-            //    
-            //    var from = Wallet.ToScriptHash("AJd31a8rYPEBkY1QSxpsGy8mdU4vTYTD4U");
-            //    sb.EmitAppCall(scriptHash, "refund", from);
-            //    sb.Emit(OpCode.THROWIFNOT);
+            var applicationScript = new byte[0];
+            using (ScriptBuilder sb = new ScriptBuilder())
+            {
 
-            //    byte[] nonce = new byte[8];
-            //    Random rand = new Random();
-            //    rand.NextBytes(nonce);
-            //    sb.Emit(OpCode.RET, nonce);
-            //    applicationScript = sb.ToArray();
-            //}
+                var from = Wallet.ToScriptHash("AJd31a8rYPEBkY1QSxpsGy8mdU4vTYTD4U");
+                sb.EmitAppCall(scriptHash, "refund", from);
+                sb.Emit(OpCode.THROWIFNOT);
+
+                byte[] nonce = new byte[8];
+                Random rand = new Random();
+                rand.NextBytes(nonce);
+                sb.Emit(OpCode.RET, nonce);
+                applicationScript = sb.ToArray();
+            }
 
             var witness = new Witness
             {
                 InvocationScript = verificationScript,
+                //未部署的合约不能执行 Storage.Get() 方法，所以要将合约部署，而不是调用本地的 AVM 文件
                 //VerificationScript = File.ReadAllBytes("C:\\Users\\chenz\\Documents\\1Code\\chenzhitong\\NeoContract5\\NeoContract\\bin\\Debug\\SGAS.avm")
                 VerificationScript = Blockchain.Default.GetContract(scriptHash).Script
             };
-            tx = new ContractTransaction
+            tx = new InvocationTransaction
             {
                 Version = 0,
-                //Script = applicationScript,
+                Script = applicationScript,
                 Outputs = outputs,
                 Inputs = inputs,
                 Attributes = new TransactionAttribute[0],
@@ -167,7 +168,7 @@ namespace NeoContract.UnitTests
                 //        Data = from.ToArray()//附加人的签名
                 //    }
                 //},
-                Scripts = new Witness[]{ witness }
+                Scripts = new Witness[] { witness }
             };
 
 
@@ -232,7 +233,6 @@ namespace NeoContract.UnitTests
             tx = new ContractTransaction
             {
                 Version = 0,
-                //Script = applicationScript,
                 Outputs = outputs,
                 Inputs = inputs,
                 Attributes = new TransactionAttribute[0],
