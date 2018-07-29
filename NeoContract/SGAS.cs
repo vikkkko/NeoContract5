@@ -13,8 +13,8 @@ namespace SGAS
         public static event deleTransfer Transferred;
         public delegate void deleTransfer(byte[] from, byte[] to, BigInteger value);
 
-        [DisplayName("onRefundTarget")]
-        public static event deleRefundTarget OnRefundTarget;
+        [DisplayName("refund")]
+        public static event deleRefundTarget Refunded;
         public delegate void deleRefundTarget(byte[] txid, byte[] who);
 
         private static readonly byte[] AssetId = Helper.HexToBytes("e72d286979ee6cb1b7e65dfddfb2e384100b8d148e7758de42e4168b71792c60"); //全局资产的资产ID，逆序，这里是NeoGas
@@ -81,8 +81,6 @@ namespace SGAS
 
                 if (method == "getTxInfo") return GetTxInfo((byte[])args[0]);
 
-                if (method == "migrate") Migrate(args);
-
                 if (method == "mintTokens") return MintTokens();
 
                 if (method == "name") return Name();
@@ -133,9 +131,6 @@ namespace SGAS
             var c = Blockchain.GetContract(to); //0.1
             return c == null || c.IsPayable;
         }
-
-        [DisplayName("migrate")]
-        public static bool Migrate(object[] args) => Admin.Migrate(args);
 
         /// <summary>
         /// 全局资产 -> NEP5资产
@@ -230,7 +225,7 @@ namespace SGAS
             Storage.Put(Storage.CurrentContext, "totalSupply", totalSupply); //1
 
             //通知
-            OnRefundTarget(tx.Hash, from);
+            Refunded(tx.Hash, from);
             return true;
         }
         

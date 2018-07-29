@@ -12,12 +12,11 @@ neo-gui 2.7.6
 | ------------------------ | ---------------------------------- | ------------------------------ | ----------- |
 | balanceOf                | see nep-5                          | neo-gui                        | ✅           |
 | decimals                 | see nep-5                          | neo-gui                        | ✅           |
-| getRefundTarget          | get who want to refund this UTXO   | neo-gui                        | 👩‍💻          |
+| getRefundTarget          | get who want to refund this UTXO   | neo-gui                        | ✅           |
 | getTxInfo                | get tx info                        | neo-gui                        | ✅           |
-| migrate                  | migrate SGAS smart contract        | neo-gui                        | 👩‍💻          |
 | mintTokens               | GAS → SGAS                         | c# code + neo-cli              | ✅           |
 | name                     | see nep-5                          | neo-gui                        | ✅           |
-| refund                   | SGAS → GAS 1/2 step                | c# code + neo-cli              | 👩‍💻          |
+| refund                   | SGAS → GAS 1/2 step                | c# code + neo-cli              | ✅           |
 | symbol                   | see nep-5                          | neo-gui                        | ✅           |
 | totalSupply              | see nep-5                          | neo-gui                        | ✅           |
 | transfer                 | see nep-5                          | neo-gui or neo-cli             | ✅           |
@@ -26,4 +25,4 @@ neo-gui 2.7.6
 
 Useful Test Tools: [https://github.com/chenzhitong/ApplicationLogsTools](https://github.com/chenzhitong/ApplicationLogsTools)
 
-2018/7/28 Testing in progress.
+2018/7/29 Testing in progress.
