@@ -26,3 +26,18 @@ neo-gui 2.7.6
 Useful Test Tools: [https://github.com/chenzhitong/ApplicationLogsTools](https://github.com/chenzhitong/ApplicationLogsTools)
 
 2018/7/29 Testing in progress.
+
+备注：
+
+Verification 触发器执行时如果有参数需要传参，否则会因为栈不平而失败
+
+Verification 触发器的参数要放在交易的 Witness 的 InvocationScript 字段中，可以用 ScriptBuilder 来构造
+
+Verification 触发器中不能执行下面的代码
+var callscript = ExecutionEngine.CallingScriptHash;
+
+未部署的合约不能执行 Storage.Get() 方法
+
+Storage.Get() 如果查询不到的话，返回 byte[0] 而不是 null
+
+Application 触发器中如果调用 CheckWitness() 的话，需要在 TransactionAttribute 中传附加人的签名 Usage = TransactionAttributeUsage.Script Data = ScriptHash，并且在 Scripts 中添加一个新的 Witness
