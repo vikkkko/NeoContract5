@@ -10,12 +10,16 @@ namespace SGAS
     public class SGAS : SmartContract
     {
         [DisplayName("transfer")]
-        public static event deleTransfer Transferred;
+        public static event deleTransfer OnTransfer;
         public delegate void deleTransfer(byte[] from, byte[] to, BigInteger value);
 
         [DisplayName("refund")]
-        public static event deleRefundTarget Refunded;
+        public static event deleRefundTarget OnRefunded;
         public delegate void deleRefundTarget(byte[] txid, byte[] who);
+        
+        [DisplayName("tokenReceive")]
+        public static event deleTokenReceive OnTokenReceive;
+        public delegate void deleTokenReceive(byte[] senderAddress, BigInteger amount, string @event, object[] args);
 
         private static readonly byte[] AssetId = Helper.HexToBytes("e72d286979ee6cb1b7e65dfddfb2e384100b8d148e7758de42e4168b71792c60"); //全局资产的资产ID，逆序，这里是NeoGas
 
@@ -177,7 +181,8 @@ namespace SGAS
 
             //通知
             SetTxInfo(null, sender, value);
-            Transferred(null, sender, value);
+            OnTransfer(null, sender, value);
+            OnTokenReceive(sender, value, "mintTokens", null);
             return true;
         }
 
@@ -225,7 +230,7 @@ namespace SGAS
             Storage.Put(Storage.CurrentContext, "totalSupply", totalSupply); //1
 
             //通知
-            Refunded(tx.Hash, from);
+            OnRefunded(tx.Hash, from);
             return true;
         }
         
@@ -271,7 +276,7 @@ namespace SGAS
 
             //通知
             SetTxInfo(from, to, amount);
-            Transferred(from, to, amount);
+            OnTransfer(from, to, amount);
             return true;
         }
 
@@ -299,7 +304,7 @@ namespace SGAS
 
             //通知
             SetTxInfo(from, to, amount);
-            Transferred(from, to, amount);
+            OnTransfer(from, to, amount);
             return true;
         }
     }
