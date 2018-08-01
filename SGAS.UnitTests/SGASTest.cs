@@ -42,7 +42,7 @@ namespace NeoContract.UnitTests
         }
 
         /// <summary>
-        /// Sign transcation with wallet
+        /// Sign transaction with wallet
         /// </summary>
         /// <param name="wallet">Wallet</param>
         /// <param name="tx">Transaction</param>
@@ -66,6 +66,20 @@ namespace NeoContract.UnitTests
                 Console.WriteLine("  > Sign Faild");
             }
 
+            DumpValues(tx);
+
+            return tx;
+        }
+
+        /// <summary>
+        /// Verify transaction with wallet
+        /// </summary>
+        /// <param name="tx">Transaction</param>
+        /// <returns>Return signed transaction</returns>
+        public void DumpValues(Transaction tx)
+        {
+            Console.ForegroundColor = ConsoleColor.Yellow;
+
             try
             {
                 tx = Transaction.DeserializeFrom(tx.ToArray());
@@ -80,8 +94,6 @@ namespace NeoContract.UnitTests
             Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
 
             Console.ForegroundColor = ConsoleColor.White;
-
-            return tx;
         }
 
         /// <summary>
@@ -206,7 +218,7 @@ namespace NeoContract.UnitTests
                 new TransactionOutput()
                 {
                     AssetId = AssetId, //Asset Id, this is GAS
-                    ScriptHash = SGAS_ContractHash, //SGAS 地址
+                    ScriptHash = from, //SGAS 地址
                     Value = sendValue //Value
                 }
             };
@@ -239,7 +251,7 @@ namespace NeoContract.UnitTests
             //Sign in wallet 生成附加人的签名
 
             var context = new ContractParametersContext(tx);
-            var additionalSignature = new byte[0];
+            byte[] additionalSignature = new byte[0];
 
             foreach (var hash in context.ScriptHashes)
             {
@@ -250,10 +262,11 @@ namespace NeoContract.UnitTests
 
                     var key = account.GetKey();
                     additionalSignature = context.Verifiable.Sign(key);
+                    break;
                 }
             }
 
-            var additionalVerificationScript = new byte[0];
+            byte[] additionalVerificationScript;
             using (var sb = new ScriptBuilder())
             {
                 sb.EmitPush(additionalSignature);
@@ -269,20 +282,13 @@ namespace NeoContract.UnitTests
             var additionalWitness = new Witness
             {
                 InvocationScript = additionalVerificationScript,
-                VerificationScript = "2103ad1d70f140d84a90ad4491cdf175fa64bfa9287a006e8cbd8f8db8500b5205baac".HexToBytes()
+                VerificationScript = "2103b3de29534e892a19f22cd5a58fbd1ebac782cd10743955a6b857a83cd2f90f48ac".HexToBytes()
             };
 
             var witnesses = new Witness[2] { witness, additionalWitness };
             tx.Scripts = witnesses.ToList().OrderBy(p => p.ScriptHash).ToArray();
 
-            try
-            {
-                tx = Transaction.DeserializeFrom(tx.ToArray());
-            }
-            catch
-            {
-                Console.WriteLine("Invalid Transaction Format");
-            }
+            DumpValues(tx);
 
             return tx;
         }
