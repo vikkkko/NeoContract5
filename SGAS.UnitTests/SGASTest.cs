@@ -63,7 +63,7 @@ namespace NeoContract.UnitTests
             }
             else
             {
-                Console.WriteLine("  > Sign Faild");
+                Console.WriteLine("  > Sign Fail");
             }
 
             DumpValues(tx);
@@ -91,7 +91,7 @@ namespace NeoContract.UnitTests
 
             Console.WriteLine("  > Hash: " + tx.Hash.ToString());
             Console.WriteLine("  > Verify Transaction: " + (tx is ContractTransaction ? "[skipped]" : tx.Verify(new List<Transaction> { tx }).ToString()));
-            Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
+            //Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
 
             Console.ForegroundColor = ConsoleColor.White;
         }
@@ -200,7 +200,7 @@ namespace NeoContract.UnitTests
             // Values
             // -------------------------------------
 
-            var from = wallet.GetAccounts().FirstOrDefault().ScriptHash;
+            var from = wallet.GetAccounts().FirstOrDefault();
 
             // -------------------------------------
 
@@ -218,7 +218,7 @@ namespace NeoContract.UnitTests
                 new TransactionOutput()
                 {
                     AssetId = AssetId, //Asset Id, this is GAS
-                    ScriptHash = from, //SGAS 地址
+                    ScriptHash = SGAS_ContractHash, //SGAS 地址
                     Value = sendValue //Value
                 }
             };
@@ -227,7 +227,7 @@ namespace NeoContract.UnitTests
 
             using (var sb = new ScriptBuilder())
             {
-                sb.EmitAppCall(SGAS_ContractHash, "refund", from);
+                sb.EmitAppCall(SGAS_ContractHash, "refund", from.ScriptHash);
                 sb.Emit(OpCode.THROWIFNOT);
                 applicationScript = sb.ToArray();
             }
@@ -243,7 +243,7 @@ namespace NeoContract.UnitTests
                     new TransactionAttribute
                     {
                         Usage = TransactionAttributeUsage.Script,
-                        Data = from.ToArray()//附加人的 Script Hash
+                        Data = from.ScriptHash.ToArray()//附加人的 Script Hash
                     }
                 }
             };
@@ -255,14 +255,13 @@ namespace NeoContract.UnitTests
 
             foreach (var hash in context.ScriptHashes)
             {
-                if (hash == from)
+                if (hash == from.ScriptHash)
                 {
                     var account = wallet.GetAccount(hash);
                     if (account?.HasKey != true) continue;
 
                     var key = account.GetKey();
                     additionalSignature = context.Verifiable.Sign(key);
-                    break;
                 }
             }
 
@@ -282,7 +281,7 @@ namespace NeoContract.UnitTests
             var additionalWitness = new Witness
             {
                 InvocationScript = additionalVerificationScript,
-                VerificationScript = "2103b3de29534e892a19f22cd5a58fbd1ebac782cd10743955a6b857a83cd2f90f48ac".HexToBytes()
+                VerificationScript = from.Contract.Script
             };
 
             var witnesses = new Witness[2] { witness, additionalWitness };
