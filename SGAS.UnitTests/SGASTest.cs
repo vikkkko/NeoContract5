@@ -223,8 +223,7 @@ namespace NeoContract.UnitTests
                 }
             };
 
-            var applicationScript = new byte[0];
-
+            byte[] applicationScript;
             using (var sb = new ScriptBuilder())
             {
                 sb.EmitAppCall(SGAS_ContractHash, "refund", from.ScriptHash);
@@ -253,16 +252,13 @@ namespace NeoContract.UnitTests
             var context = new ContractParametersContext(tx);
             byte[] additionalSignature = new byte[0];
 
-            foreach (var hash in context.ScriptHashes)
+            foreach (var hash in context.ScriptHashes.Where(u => u == from.ScriptHash))
             {
-                if (hash == from.ScriptHash)
-                {
-                    var account = wallet.GetAccount(hash);
-                    if (account?.HasKey != true) continue;
+                var account = wallet.GetAccount(hash);
+                if (account?.HasKey != true) continue;
 
-                    var key = account.GetKey();
-                    additionalSignature = context.Verifiable.Sign(key);
-                }
+                var key = account.GetKey();
+                additionalSignature = context.Verifiable.Sign(key);
             }
 
             byte[] additionalVerificationScript;
@@ -272,13 +268,12 @@ namespace NeoContract.UnitTests
                 additionalVerificationScript = sb.ToArray();
             }
 
-            var witness = new Witness
+            Witness witness = new Witness
             {
                 InvocationScript = applicationScript,
                 VerificationScript = SGAS_Contract
-            };
-
-            var additionalWitness = new Witness
+            },
+            additionalWitness = new Witness
             {
                 InvocationScript = additionalVerificationScript,
                 VerificationScript = from.Contract.Script
