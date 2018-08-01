@@ -51,6 +51,8 @@ namespace NeoContract.UnitTests
         {
             // Sign in wallet
 
+            Console.ForegroundColor = ConsoleColor.Yellow;
+
             var context = new ContractParametersContext(tx);
             wallet.Sign(context);
 
@@ -74,8 +76,10 @@ namespace NeoContract.UnitTests
             }
 
             Console.WriteLine("  > Hash: " + tx.Hash.ToString());
-            Console.WriteLine("  > Verify Transaction: " + tx.Verify(new List<Transaction> { tx }));
+            Console.WriteLine("  > Verify Transaction: " + (tx is ContractTransaction ? "[skipped]" : tx.Verify(new List<Transaction> { tx }).ToString()));
             Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
+
+            Console.ForegroundColor = ConsoleColor.White;
 
             return tx;
         }

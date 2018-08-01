@@ -41,6 +41,7 @@ namespace NeoContract.UnitTests
 
             // -----------------------------------------------------------------
 
+            Console.ForegroundColor = ConsoleColor.White;
             Transaction txMint, txVerify, txRefund;
             var test = new SGASTest(rpc, sgasHash, token);
             using (wallet.Unlock(walletPassword))
