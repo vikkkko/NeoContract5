@@ -48,7 +48,8 @@ namespace NeoContract.UnitTests
             {
                 Console.WriteLine("Mint");
 
-                txMint = test.MintTokens(wallet, amount, txOutputHash);
+                txMint = rpc.GetTransaction(txOutputHash);
+                //txMint = test.MintTokens(wallet, amount, txOutputHash);
 
                 Console.WriteLine("Press enter for: send Mint");
                 Console.ReadLine();
@@ -60,7 +61,7 @@ namespace NeoContract.UnitTests
 
                 Console.WriteLine("Refund");
 
-                txRefund = test.Refund(wallet, txVerify.Hash, amount, txMint.Hash);
+                txRefund = test.Refund(wallet, txVerify.Hash, txMint);
             }
 
             // Send rpc

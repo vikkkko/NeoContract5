@@ -192,9 +192,9 @@ namespace NeoContract.UnitTests
         /// </summary>
         /// <param name="wallet">Wallet</param>
         /// <param name="txHashVerify">Tx verify</param>
-        /// <param name="sendValue">Send value</param>
+        /// <param name="inputTx">Input tx</param>
         /// <returns>Transaction</returns>
-        public Transaction Refund(Wallet wallet, UInt256 txHashVerify, Fixed8 sendValue, UInt256 inputTXHash)
+        public Transaction Refund(Wallet wallet, UInt256 txHashVerify, Transaction inputTx)
         {
             // -------------------------------------
             // Values
@@ -202,14 +202,34 @@ namespace NeoContract.UnitTests
 
             var from = wallet.GetAccounts().FirstOrDefault();
 
+            var outputTxIndex = ushort.MaxValue;
+
+            if (inputTx != null)
+            {
+                // Search for the index
+
+                for (ushort x = 0; x < inputTx.Outputs.Length; x++)
+                {
+                    if (inputTx.Outputs[x].ScriptHash.ToString() == SGAS_ContractHash.ToString())
+                    {
+                        outputTxIndex = x;
+                        break;
+                    }
+                }
+            }
+
+            if (outputTxIndex == ushort.MaxValue) throw new Exception("TX Output invalid");
+
+            var originalOutput = inputTx.Outputs[outputTxIndex];
+
             // -------------------------------------
 
             var inputs = new CoinReference[]
             {
                 new CoinReference()
                 {
-                    PrevHash = inputTXHash,
-                    PrevIndex = 0 // Only one for simplify
+                    PrevHash = inputTx.Hash,
+                    PrevIndex = outputTxIndex // Only one for simplify
                 }
             };
 
@@ -219,7 +239,7 @@ namespace NeoContract.UnitTests
                 {
                     AssetId = AssetId, //Asset Id, this is GAS
                     ScriptHash = SGAS_ContractHash, //SGAS 地址
-                    Value = sendValue //Value
+                    Value = originalOutput.Value //Value
                 }
             };
 
@@ -254,10 +274,7 @@ namespace NeoContract.UnitTests
 
             foreach (var hash in context.ScriptHashes.Where(u => u == from.ScriptHash))
             {
-                var account = wallet.GetAccount(hash);
-                if (account?.HasKey != true) continue;
-
-                var key = account.GetKey();
+                var key = from.GetKey();
                 additionalSignature = context.Verifiable.Sign(key);
             }
 
@@ -268,18 +285,23 @@ namespace NeoContract.UnitTests
                 additionalVerificationScript = sb.ToArray();
             }
 
+            // SmartContract verification
+
             Witness witness = new Witness
             {
                 InvocationScript = applicationScript,
-                VerificationScript = SGAS_Contract
+                VerificationScript = new byte[0]
             },
+
+            // sign of your wallet
+
             additionalWitness = new Witness
             {
                 InvocationScript = additionalVerificationScript,
                 VerificationScript = from.Contract.Script
             };
 
-            var witnesses = new Witness[2] { witness, additionalWitness };
+            var witnesses = new Witness[] { witness, additionalWitness };
             tx.Scripts = witnesses.ToList().OrderBy(p => p.ScriptHash).ToArray();
 
             DumpValues(tx);
