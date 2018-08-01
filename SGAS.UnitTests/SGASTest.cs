@@ -91,7 +91,7 @@ namespace NeoContract.UnitTests
 
             Console.WriteLine("  > Hash: " + tx.Hash.ToString());
             Console.WriteLine("  > Verify Transaction: " + (tx is ContractTransaction ? "[skipped]" : tx.Verify(new List<Transaction> { tx }).ToString()));
-            //Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
+            Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
 
             Console.ForegroundColor = ConsoleColor.White;
         }
@@ -303,7 +303,7 @@ namespace NeoContract.UnitTests
             Witness witness = new Witness
             {
                 InvocationScript = applicationScript,
-                VerificationScript = new byte[0]
+                VerificationScript = SGAS_Contract
             },
 
             // sign of your wallet
