@@ -48,8 +48,8 @@ namespace NeoContract.UnitTests
             {
                 Console.WriteLine("Mint");
 
-                txMint = rpc.GetTransaction(txOutputHash);
-                //txMint = test.MintTokens(wallet, amount, txOutputHash);
+                //txMint = rpc.GetTransaction(txOutputHash);
+                txMint = test.MintTokens(wallet, amount, txOutputHash);
 
                 Console.WriteLine("Press enter for: send Mint");
                 Console.ReadLine();

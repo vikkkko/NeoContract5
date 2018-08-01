@@ -157,6 +157,13 @@ namespace NeoContract.UnitTests
                 Value = originalOutput.Value-sendValue // X - sendValue [GAS]
             }};
 
+            if (sendValue == originalOutput.Value)
+            {
+                // FULL TX, remove the extra info
+
+                Array.Resize(ref outputs, 1);
+            }
+
             Transaction tx;
 
             using (ScriptBuilder sb = new ScriptBuilder())
@@ -166,10 +173,10 @@ namespace NeoContract.UnitTests
 
                 // Should change the hash
 
-                //byte[] nonce = new byte[8];
-                //Random rand = new Random();
-                //rand.NextBytes(nonce);
-                //sb.Emit(OpCode.RET, nonce);
+                byte[] nonce = new byte[8];
+                Random rand = new Random();
+                rand.NextBytes(nonce);
+                sb.Emit(OpCode.RET, nonce);
 
                 tx = new InvocationTransaction
                 {
@@ -191,14 +198,20 @@ namespace NeoContract.UnitTests
         /// Refund
         /// </summary>
         /// <param name="wallet">Wallet</param>
-        /// <param name="txHashVerify">Tx verify</param>
         /// <param name="inputTx">Input tx</param>
         /// <returns>Transaction</returns>
-        public Transaction Refund(Wallet wallet, UInt256 txHashVerify, Transaction inputTx)
+        public Transaction Refund(Wallet wallet, Transaction inputTx)
         {
             // -------------------------------------
             // Values
             // -------------------------------------
+
+            if (inputTx.Outputs.Length != 1 || inputTx.Inputs.Length != 1)
+            {
+                // SC FAIL!
+
+                return null;
+            }
 
             var from = wallet.GetAccounts().FirstOrDefault();
 
