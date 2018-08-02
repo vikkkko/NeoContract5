@@ -76,7 +76,7 @@ namespace SGAS.UnitTests
 
         public override ContractState GetContract(UInt160 hash)
         {
-            throw new NotImplementedException();
+            return RPC.GetContract(hash);
         }
 
         public override IEnumerable<ValidatorState> GetEnrollments()

@@ -20,17 +20,17 @@ namespace NeoContract.UnitTests
         /// Asset id, GAS
         /// </summary>
         public readonly UInt256 AssetId;
-        
+
         /// <summary>
         /// Hash of SGAS
         /// </summary>
         public readonly UInt160 SGAS_ContractHash;
-        
+
         /// <summary>
         /// Full source of SGAS
         /// </summary>
         public readonly byte[] SGAS_Contract;
-        
+
         /// <summary>
         /// RPC Client
         /// </summary>
@@ -105,7 +105,7 @@ namespace NeoContract.UnitTests
 
             Console.WriteLine("  > Hash: " + tx.Hash.ToString());
             Console.WriteLine("  > Verify Transaction: " + (tx is ContractTransaction ? "[skipped]" : tx.Verify(new List<Transaction> { tx }).ToString()));
-            Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
+            //Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
 
             Console.ForegroundColor = ConsoleColor.White;
         }
@@ -284,6 +284,15 @@ namespace NeoContract.UnitTests
                 applicationScript = sb.ToArray();
             }
 
+            byte[] applicationScriptForVerify;
+            using (var sb = new ScriptBuilder())
+            {
+                sb.EmitPush("refund"); // operation
+                sb.EmitPush(0); // Dummy array
+
+                applicationScriptForVerify = sb.ToArray();
+            }
+
             Transaction tx = new InvocationTransaction
             {
                 Version = 0,
@@ -295,7 +304,7 @@ namespace NeoContract.UnitTests
                     new TransactionAttribute
                     {
                         Usage = TransactionAttributeUsage.Script,
-                        Data = from.ScriptHash.ToArray()//附加人的 Script Hash
+                        Data = from.ScriptHash.ToArray() // 附加人的 Script Hash
                     }
                 }
             };
@@ -322,7 +331,7 @@ namespace NeoContract.UnitTests
 
             Witness witness = new Witness
             {
-                InvocationScript = applicationScript,
+                InvocationScript = applicationScriptForVerify,
                 VerificationScript = SGAS_Contract
             },
 

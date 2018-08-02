@@ -86,6 +86,29 @@ namespace SGAS.UnitTests
         }
 
         /// <summary>
+        /// Get contract state
+        /// </summary>
+        /// <param name="hash">Hash</param>
+        /// <returns>Contract state</returns>
+        public ContractState GetContract(UInt160 hash)
+        {
+            var json = Call("getcontractstate", $"[\"{hash.ToString()}\"]");
+
+            if (json == null || !json.ContainsKey("result")) return null;
+
+            var val = json["result"];
+
+            if (val == null) return null;
+
+            // TODO: Parse
+
+            return new ContractState()
+            {
+                Script = val["script"].Value<string>().HexToBytes(),
+            };
+        }
+
+        /// <summary>
         /// Send transaction
         /// </summary>
         /// <param name="tx">Tx</param>
