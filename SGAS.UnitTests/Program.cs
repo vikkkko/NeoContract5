@@ -61,7 +61,7 @@ namespace NeoContract.UnitTests
 
                 Console.WriteLine("Refund");
 
-                txRefund = test.Refund(wallet, txVerify.Hash, txMint);
+                txRefund = test.Refund(wallet, txMint);
             }
 
             // Send rpc

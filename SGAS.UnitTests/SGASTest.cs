@@ -144,24 +144,31 @@ namespace NeoContract.UnitTests
                 }
             };
 
-            var outputs = new TransactionOutput[]{ new TransactionOutput()
-            {
-                AssetId = AssetId, // Asset Id, this is GAS
-                ScriptHash = SGAS_ContractHash, // SGAS
-                Value = sendValue // sendValue
-            },
-            new TransactionOutput()
-            {
-                AssetId = AssetId, // Asset Id, this is GAS
-                ScriptHash = originalOutput.ScriptHash, // Contract hash
-                Value = originalOutput.Value-sendValue // X - sendValue [GAS]
-            }};
+            TransactionOutput[] outputs;
 
             if (sendValue == originalOutput.Value)
             {
-                // FULL TX, remove the extra info
-
-                Array.Resize(ref outputs, 1);
+                outputs = new TransactionOutput[]{ new TransactionOutput()
+                {
+                    AssetId = AssetId, // Asset Id, this is GAS
+                    ScriptHash = SGAS_ContractHash, // SGAS
+                    Value = sendValue // sendValue
+                } };
+            }
+            else
+            {
+                outputs = new TransactionOutput[]{ new TransactionOutput()
+                {
+                    AssetId = AssetId, // Asset Id, this is GAS
+                    ScriptHash = SGAS_ContractHash, // SGAS
+                    Value = sendValue // sendValue
+                },
+                new TransactionOutput()
+                {
+                    AssetId = AssetId, // Asset Id, this is GAS
+                    ScriptHash = originalOutput.ScriptHash, // Contract hash
+                    Value = originalOutput.Value-sendValue // X - sendValue [GAS]
+                }};
             }
 
             Transaction tx;
