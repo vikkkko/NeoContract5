@@ -16,10 +16,24 @@ namespace NeoContract.UnitTests
     {
         #region Variables
 
+        /// <summary>
+        /// Asset id, GAS
+        /// </summary>
         public readonly UInt256 AssetId;
-
+        
+        /// <summary>
+        /// Hash of SGAS
+        /// </summary>
         public readonly UInt160 SGAS_ContractHash;
+        
+        /// <summary>
+        /// Full source of SGAS
+        /// </summary>
         public readonly byte[] SGAS_Contract;
+        
+        /// <summary>
+        /// RPC Client
+        /// </summary>
         public readonly RpcClient RPC;
 
         #endregion
@@ -28,8 +42,8 @@ namespace NeoContract.UnitTests
         /// Constructor
         /// </summary>
         /// <param name="rpc">RPC</param>
-        /// <param name="contract">Contract</param>
-        /// <param name="token">Token</param>
+        /// <param name="contract">Contract hash (SGAS)</param>
+        /// <param name="token">Token hash (GAS)</param>
         public SGASTest(RpcClient rpc, UInt160 contract, UInt256 token)
         {
             AssetId = token;
@@ -127,7 +141,7 @@ namespace NeoContract.UnitTests
                 }
             }
 
-            if (outputTxIndex == ushort.MaxValue) throw new Exception("TX Output invalid");
+            if (outputTxIndex == ushort.MaxValue) throw new Exception("Invalid TX Output");
 
             var originalOutput = inputTx.Outputs[outputTxIndex];
 
@@ -215,14 +229,13 @@ namespace NeoContract.UnitTests
 
             if (inputTx.Outputs.Length != 1 || inputTx.Inputs.Length != 1)
             {
-                // SC FAIL!
+                // SC FAIL !
 
                 return null;
             }
 
-            var from = wallet.GetAccounts().FirstOrDefault();
-
             var outputTxIndex = ushort.MaxValue;
+            var from = wallet.GetAccounts().FirstOrDefault();
 
             if (inputTx != null)
             {
@@ -238,7 +251,7 @@ namespace NeoContract.UnitTests
                 }
             }
 
-            if (outputTxIndex == ushort.MaxValue) throw new Exception("TX Output invalid");
+            if (outputTxIndex == ushort.MaxValue) throw new Exception("Invalid TX Output");
 
             var originalOutput = inputTx.Outputs[outputTxIndex];
 
@@ -249,7 +262,7 @@ namespace NeoContract.UnitTests
                 new CoinReference()
                 {
                     PrevHash = inputTx.Hash,
-                    PrevIndex = outputTxIndex // Only one for simplify
+                    PrevIndex = outputTxIndex
                 }
             };
 
@@ -290,7 +303,7 @@ namespace NeoContract.UnitTests
             //Sign in wallet 生成附加人的签名
 
             var context = new ContractParametersContext(tx);
-            byte[] additionalSignature = new byte[0];
+            var additionalSignature = new byte[0];
 
             foreach (var hash in context.ScriptHashes.Where(u => u == from.ScriptHash))
             {
@@ -307,7 +320,7 @@ namespace NeoContract.UnitTests
 
             // SmartContract verification
 
-            Witness witness = new Witness
+            var witness = new Witness
             {
                 InvocationScript = applicationScript,
                 VerificationScript = SGAS_Contract
