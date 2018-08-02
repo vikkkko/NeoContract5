@@ -320,7 +320,7 @@ namespace NeoContract.UnitTests
 
             // SmartContract verification
 
-            var witness = new Witness
+            Witness witness = new Witness
             {
                 InvocationScript = applicationScript,
                 VerificationScript = SGAS_Contract
