@@ -79,7 +79,9 @@ namespace SGAS.UnitTests
 
             return new AssetState()
             {
-                AssetType = (AssetType)Enum.Parse(typeof(AssetType), val["type"].Value<string>())
+                AssetType = (AssetType)Enum.Parse(typeof(AssetType), val["type"].Value<string>()),
+                Precision = val["precision"].Value<byte>(),
+                Expiration = val["expiration"].Value<uint>(),
             };
         }
 
