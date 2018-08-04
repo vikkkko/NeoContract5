@@ -60,8 +60,9 @@ namespace NeoContract.UnitTests
         /// </summary>
         /// <param name="wallet">Wallet</param>
         /// <param name="tx">Transaction</param>
+        /// <param name="verify">Verify</param>
         /// <returns>Return signed transaction</returns>
-        public Transaction SignTx(Wallet wallet, Transaction tx)
+        public Transaction SignTx(Wallet wallet, Transaction tx, bool verify)
         {
             // Sign in wallet
 
@@ -80,7 +81,7 @@ namespace NeoContract.UnitTests
                 Console.WriteLine("  > Sign Fail");
             }
 
-            DumpValues(tx);
+            DumpValues(tx, verify);
 
             return tx;
         }
@@ -89,8 +90,9 @@ namespace NeoContract.UnitTests
         /// Verify transaction with wallet
         /// </summary>
         /// <param name="tx">Transaction</param>
+        /// <param name="verify">Verify</param>
         /// <returns>Return signed transaction</returns>
-        public void DumpValues(Transaction tx)
+        public void DumpValues(Transaction tx, bool verify)
         {
             Console.ForegroundColor = ConsoleColor.Yellow;
 
@@ -104,7 +106,7 @@ namespace NeoContract.UnitTests
             }
 
             Console.WriteLine("  > Hash: " + tx.Hash.ToString());
-            Console.WriteLine("  > Verify Transaction: " + (tx is ContractTransaction ? "[skipped]" : tx.Verify(new List<Transaction> { tx }).ToString()));
+            Console.WriteLine("  > Verify Transaction: " + (!verify ? "[skipped]" : tx.Verify(new List<Transaction> { tx }).ToString()));
             //Console.WriteLine("  > Raw Transaction: " + tx.ToArray().ToHexString());
 
             Console.ForegroundColor = ConsoleColor.White;
@@ -212,7 +214,7 @@ namespace NeoContract.UnitTests
 
             // Sign tx
 
-            return SignTx(wallet, tx);
+            return SignTx(wallet, tx, true);
         }
 
         /// <summary>
@@ -227,12 +229,11 @@ namespace NeoContract.UnitTests
             // Values
             // -------------------------------------
 
-            if (inputTx.Outputs.Length != 1 || inputTx.Inputs.Length != 1)
-            {
-                // SC FAIL !
-
-                return null;
-            }
+            //if (inputTx.Outputs.Length != 1 || inputTx.Inputs.Length != 1)
+            //{
+            //    // SC FAIL !
+            //    return null;
+            //}
 
             var outputTxIndex = ushort.MaxValue;
             var from = wallet.GetAccounts().FirstOrDefault();
@@ -266,15 +267,43 @@ namespace NeoContract.UnitTests
                 }
             };
 
-            var outputs = new TransactionOutput[]
+            TransactionOutput[] outputs;
+            var sendValue = originalOutput.Value;
+
+            if (sendValue == originalOutput.Value)
             {
+                outputs = new TransactionOutput[]{ new TransactionOutput()
+                {
+                    AssetId = AssetId, // Asset Id, this is GAS
+                    ScriptHash = SGAS_ContractHash, // SGAS
+                    Value = sendValue // sendValue
+                } };
+            }
+            else
+            {
+                outputs = new TransactionOutput[]{ new TransactionOutput()
+                {
+                    AssetId = AssetId, // Asset Id, this is GAS
+                    ScriptHash = SGAS_ContractHash, // SGAS
+                    Value = sendValue // sendValue
+                },
                 new TransactionOutput()
                 {
-                    AssetId = AssetId, //Asset Id, this is GAS
-                    ScriptHash = SGAS_ContractHash, //SGAS 地址
-                    Value = originalOutput.Value //Value
-                }
-            };
+                    AssetId = AssetId, // Asset Id, this is GAS
+                    ScriptHash = originalOutput.ScriptHash, // Contract hash
+                    Value = originalOutput.Value-sendValue // X - sendValue [GAS]
+                }};
+            }
+
+            //var outputs = new TransactionOutput[]
+            //{
+            //    new TransactionOutput()
+            //    {
+            //        AssetId = AssetId, //Asset Id, this is GAS
+            //        ScriptHash = SGAS_ContractHash, //SGAS 地址
+            //        Value = originalOutput.Value //Value
+            //    }
+            //};
 
             byte[] applicationScript;
             using (var sb = new ScriptBuilder())
@@ -287,8 +316,8 @@ namespace NeoContract.UnitTests
             byte[] applicationScriptForVerify;
             using (var sb = new ScriptBuilder())
             {
-                sb.EmitPush("refund"); // operation
-                sb.EmitPush(0); // Dummy array
+                sb.EmitPush(2);
+                sb.EmitPush("1");
 
                 applicationScriptForVerify = sb.ToArray();
             }
@@ -332,7 +361,7 @@ namespace NeoContract.UnitTests
             Witness witness = new Witness
             {
                 InvocationScript = applicationScriptForVerify,
-                VerificationScript = SGAS_Contract
+                VerificationScript = new byte[0] // SGAS_Contract
             },
 
             // sign of your wallet
@@ -346,7 +375,7 @@ namespace NeoContract.UnitTests
             var witnesses = new Witness[] { witness, additionalWitness };
             tx.Scripts = witnesses.ToList().OrderBy(p => p.ScriptHash).ToArray();
 
-            DumpValues(tx);
+            DumpValues(tx, false);
 
             return tx;
         }
@@ -355,17 +384,18 @@ namespace NeoContract.UnitTests
         /// Verify
         /// </summary>
         /// <param name="wallet">Wallet</param>
-        /// <param name="value">Value</param>
         /// <param name="txMint">Tx mint</param>
         /// <returns>Transaction</returns>
-        public Transaction Verify(Wallet wallet, Fixed8 value, Transaction txMint)
+        public Transaction Verify(Wallet wallet, Transaction inputTx)
         {
+            var from = wallet.GetAccounts().FirstOrDefault();
+
             var inputs = new CoinReference[]
             {
                 new CoinReference()
                 {
-                    PrevHash = txMint.Hash,
-                    PrevIndex = 0 // one for simplify
+                    PrevHash = inputTx.Hash,
+                    PrevIndex = 0 // Force one only
                 }
             };
 
@@ -373,9 +403,9 @@ namespace NeoContract.UnitTests
             {
                 new TransactionOutput()
                 {
-                    AssetId = AssetId, //Asset Id, this is GAS
-                    ScriptHash = SGAS_ContractHash, //SGAS 地址
-                    Value = value //Value
+                    AssetId = AssetId, // Asset Id, this is GAS
+                    ScriptHash = from.ScriptHash, // From (wallet)
+                    Value = inputTx.Outputs[0].Value // Value
                 }
             };
 
@@ -391,7 +421,7 @@ namespace NeoContract.UnitTests
             {
                 InvocationScript = verificationScript,
                 //未部署的合约不能执行 Storage.Get() 方法，所以要将合约部署，而不是调用本地的 AVM 文件
-                VerificationScript = SGAS_Contract
+                VerificationScript = new byte[0] // SGAS_Contract
             };
 
             var tx = new ContractTransaction
@@ -403,7 +433,7 @@ namespace NeoContract.UnitTests
                 Scripts = new Witness[] { witness }
             };
 
-            return SignTx(wallet, tx);
+            return SignTx(wallet, tx, false);
         }
     }
 }
