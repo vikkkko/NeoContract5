@@ -433,7 +433,9 @@ namespace NeoContract.UnitTests
                 Scripts = new Witness[] { witness }
             };
 
-            return SignTx(wallet, tx, false);
+            DumpValues(tx, false);
+
+            return tx;
         }
     }
 }

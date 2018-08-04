@@ -44,15 +44,14 @@ namespace NeoContract.UnitTests
             // -----------------------------------------------------------------
 
             Console.ForegroundColor = ConsoleColor.White;
-            Transaction txMint, txVerify, txRefund;
             var test = new SGASTest(rpc, sGASContactHash, token);
 
             using (wallet.Unlock(walletPassword))
             {
                 Console.WriteLine("Mint");
 
-                // txMint = rpc.GetTransaction(inputHashForTxMint);
-                txMint = test.MintTokens(wallet, mintAmount, inputHashForTxMint);
+                // Transaction txMint = rpc.GetTransaction(inputHashForTxMint);
+                Transaction txMint = test.MintTokens(wallet, mintAmount, inputHashForTxMint);
 
                 Console.WriteLine("Press enter for: send Mint");
 
@@ -60,7 +59,7 @@ namespace NeoContract.UnitTests
                 Console.WriteLine(rpc.SendTransaction(txMint).ToString());
                 Console.WriteLine("Refund");
 
-                txRefund = test.Refund(wallet, rpc.GetTransaction(inputHashForTxRefund));
+                Transaction txRefund = test.Refund(wallet, rpc.GetTransaction(inputHashForTxRefund));
 
                 Console.WriteLine("Press enter for: send Refund (Ensure that the mint was received!)");
 
@@ -68,7 +67,7 @@ namespace NeoContract.UnitTests
                 Console.WriteLine(rpc.SendTransaction(txRefund).ToString());
                 Console.WriteLine("Verify");
 
-                txVerify = test.Verify(wallet, txRefund);
+                Transaction txVerify = test.Verify(wallet, txRefund);
 
                 Console.WriteLine("Press enter for: send Verify");
                 Console.ReadLine();
