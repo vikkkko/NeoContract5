@@ -194,13 +194,6 @@ namespace NeoContract.UnitTests
                 sb.EmitAppCall(SGAS_ContractHash, "mintTokens");
                 sb.Emit(OpCode.THROWIFNOT);
 
-                // Nonce for change the hash
-
-                //byte[] nonce = new byte[8];
-                //Random rand = new Random();
-                //rand.NextBytes(nonce);
-                //sb.Emit(OpCode.RET, nonce);
-
                 tx = new InvocationTransaction
                 {
                     Version = 1,
