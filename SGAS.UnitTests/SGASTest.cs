@@ -360,7 +360,7 @@ namespace NeoContract.UnitTests
                 // Fake script for verification
 
                 sb.EmitPush(2);
-                sb.EmitPush("1");
+                sb.EmitPush("1"); // Could be used as nonce, for get new hash on Verify (use Block.Height)
 
                 return sb.ToArray();
             }
