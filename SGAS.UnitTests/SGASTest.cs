@@ -26,10 +26,10 @@ namespace NeoContract.UnitTests
         /// </summary>
         public readonly UInt160 SGAS_ContractHash;
 
-        /// <summary>
-        /// Full source of SGAS
-        /// </summary>
-        public readonly byte[] SGAS_Contract;
+        ///// <summary>
+        ///// Full source of SGAS
+        ///// </summary>
+        //public readonly byte[] SGAS_Contract;
 
         /// <summary>
         /// RPC Client
@@ -49,8 +49,8 @@ namespace NeoContract.UnitTests
             AssetId = token;
             SGAS_ContractHash = contract;
 
-            var json = rpc.Call("getcontractstate", $"[\"{SGAS_ContractHash.ToString()}\"]");
-            SGAS_Contract = json["result"]["script"].Value<string>().HexToBytes();
+            //var json = rpc.Call("getcontractstate", $"[\"{SGAS_ContractHash.ToString()}\"]");
+            //SGAS_Contract = json["result"]["script"].Value<string>().HexToBytes();
 
             RPC = rpc;
         }
@@ -116,16 +116,16 @@ namespace NeoContract.UnitTests
         /// SGAS MintTokens
         /// </summary>
         /// <param name="wallet">Wallet</param>
+        /// <param name="from">From</param>
         /// <param name="sendValue">Send amount</param>
         /// <param name="inputTXHash">Input hash (there is no rpc call for this)</param>
         /// <returns></returns>
-        public Transaction MintTokens(Wallet wallet, Fixed8 sendValue, UInt256 inputTXHash)
+        public Transaction MintTokens(Wallet wallet, WalletAccount from, Fixed8 sendValue, UInt256 inputTXHash)
         {
             // -------------------------------------
             // Get values
             // -------------------------------------
 
-            var from = wallet.GetAccounts().FirstOrDefault();
             var inputTx = RPC.GetTransaction(inputTXHash);
             var outputTxIndex = ushort.MaxValue;
 
@@ -151,12 +151,12 @@ namespace NeoContract.UnitTests
 
             var inputs = new CoinReference[]
             {
-                // coin reference A
+                // UTXO from user wallet
 
                 new CoinReference()
                 {
                     PrevHash = inputTx.Hash,
-                    PrevIndex = outputTxIndex // X GAS
+                    PrevIndex = outputTxIndex
                 }
             };
 
@@ -166,8 +166,8 @@ namespace NeoContract.UnitTests
             {
                 outputs = new TransactionOutput[]{ new TransactionOutput()
                 {
-                    AssetId = AssetId, // Asset Id, this is GAS
-                    ScriptHash = SGAS_ContractHash, // SGAS
+                    AssetId = AssetId, // Asset Id (this is GAS)
+                    ScriptHash = SGAS_ContractHash, // SGAS (Contract)
                     Value = sendValue // sendValue
                 } };
             }
@@ -175,14 +175,14 @@ namespace NeoContract.UnitTests
             {
                 outputs = new TransactionOutput[]{ new TransactionOutput()
                 {
-                    AssetId = AssetId, // Asset Id, this is GAS
-                    ScriptHash = SGAS_ContractHash, // SGAS
+                    AssetId = AssetId, // Asset Id (this is GAS)
+                    ScriptHash = SGAS_ContractHash, // SGAS (Contract)
                     Value = sendValue // sendValue
                 },
                 new TransactionOutput()
                 {
-                    AssetId = AssetId, // Asset Id, this is GAS
-                    ScriptHash = originalOutput.ScriptHash, // Contract hash
+                    AssetId = AssetId, // Asset Id (this is GAS)
+                    ScriptHash = originalOutput.ScriptHash, // SGAS (Contract)
                     Value = originalOutput.Value-sendValue // X - sendValue [GAS]
                 }};
             }
@@ -194,12 +194,12 @@ namespace NeoContract.UnitTests
                 sb.EmitAppCall(SGAS_ContractHash, "mintTokens");
                 sb.Emit(OpCode.THROWIFNOT);
 
-                // Should change the hash
+                // Nonce for change the hash
 
-                byte[] nonce = new byte[8];
-                Random rand = new Random();
-                rand.NextBytes(nonce);
-                sb.Emit(OpCode.RET, nonce);
+                //byte[] nonce = new byte[8];
+                //Random rand = new Random();
+                //rand.NextBytes(nonce);
+                //sb.Emit(OpCode.RET, nonce);
 
                 tx = new InvocationTransaction
                 {
@@ -220,23 +220,16 @@ namespace NeoContract.UnitTests
         /// <summary>
         /// Refund
         /// </summary>
-        /// <param name="wallet">Wallet</param>
+        /// <param name="from">Wallet</param>
         /// <param name="inputTx">Input tx</param>
         /// <returns>Transaction</returns>
-        public Transaction Refund(Wallet wallet, Transaction inputTx)
+        public Transaction Refund(WalletAccount from, Transaction inputTx)
         {
             // -------------------------------------
             // Values
             // -------------------------------------
 
-            //if (inputTx.Outputs.Length != 1 || inputTx.Inputs.Length != 1)
-            //{
-            //    // SC FAIL !
-            //    return null;
-            //}
-
             var outputTxIndex = ushort.MaxValue;
-            var from = wallet.GetAccounts().FirstOrDefault();
 
             if (inputTx != null)
             {
@@ -260,6 +253,8 @@ namespace NeoContract.UnitTests
 
             var inputs = new CoinReference[]
             {
+                // UTXO from * to the contract
+
                 new CoinReference()
                 {
                     PrevHash = inputTx.Hash,
@@ -274,8 +269,8 @@ namespace NeoContract.UnitTests
             {
                 outputs = new TransactionOutput[]{ new TransactionOutput()
                 {
-                    AssetId = AssetId, // Asset Id, this is GAS
-                    ScriptHash = SGAS_ContractHash, // SGAS
+                    AssetId = AssetId, // Asset Id (this is GAS)
+                    ScriptHash = SGAS_ContractHash,  // SGAS (Contract)
                     Value = sendValue // sendValue
                 } };
             }
@@ -283,27 +278,17 @@ namespace NeoContract.UnitTests
             {
                 outputs = new TransactionOutput[]{ new TransactionOutput()
                 {
-                    AssetId = AssetId, // Asset Id, this is GAS
+                    AssetId = AssetId, // Asset Id (this is GAS)
                     ScriptHash = SGAS_ContractHash, // SGAS
                     Value = sendValue // sendValue
                 },
                 new TransactionOutput()
                 {
-                    AssetId = AssetId, // Asset Id, this is GAS
+                    AssetId = AssetId, // Asset Id (this is GAS)
                     ScriptHash = originalOutput.ScriptHash, // Contract hash
                     Value = originalOutput.Value-sendValue // X - sendValue [GAS]
                 }};
             }
-
-            //var outputs = new TransactionOutput[]
-            //{
-            //    new TransactionOutput()
-            //    {
-            //        AssetId = AssetId, //Asset Id, this is GAS
-            //        ScriptHash = SGAS_ContractHash, //SGAS 地址
-            //        Value = originalOutput.Value //Value
-            //    }
-            //};
 
             byte[] applicationScript;
             using (var sb = new ScriptBuilder())
@@ -311,15 +296,6 @@ namespace NeoContract.UnitTests
                 sb.EmitAppCall(SGAS_ContractHash, "refund", from.ScriptHash);
                 sb.Emit(OpCode.THROWIFNOT);
                 applicationScript = sb.ToArray();
-            }
-
-            byte[] applicationScriptForVerify;
-            using (var sb = new ScriptBuilder())
-            {
-                sb.EmitPush(2);
-                sb.EmitPush("1");
-
-                applicationScriptForVerify = sb.ToArray();
             }
 
             Transaction tx = new InvocationTransaction
@@ -333,12 +309,12 @@ namespace NeoContract.UnitTests
                     new TransactionAttribute
                     {
                         Usage = TransactionAttributeUsage.Script,
-                        Data = from.ScriptHash.ToArray() // 附加人的 Script Hash
+                        Data = from.ScriptHash.ToArray() // User Wallet
                     }
                 }
             };
 
-            //Sign in wallet 生成附加人的签名
+            // Sign it with user wallet
 
             var context = new ContractParametersContext(tx);
             var additionalSignature = new byte[0];
@@ -360,8 +336,8 @@ namespace NeoContract.UnitTests
 
             Witness witness = new Witness
             {
-                InvocationScript = applicationScriptForVerify,
-                VerificationScript = new byte[0] // SGAS_Contract
+                InvocationScript = GetFakeScriptForVerification(),
+                VerificationScript = new byte[0] // SGAS_Contract (Full Smart contract, neo take this script from the blockchain)
             },
 
             // sign of your wallet
@@ -381,15 +357,30 @@ namespace NeoContract.UnitTests
         }
 
         /// <summary>
+        /// We need a script compatible with verification, PushOnly (without PACK or APPCALL)
+        /// </summary>
+        /// <returns>Script</returns>
+        private byte[] GetFakeScriptForVerification()
+        {
+            using (var sb = new ScriptBuilder())
+            {
+                // Fake script for verification
+
+                sb.EmitPush(2);
+                sb.EmitPush("1");
+
+                return sb.ToArray();
+            }
+        }
+
+        /// <summary>
         /// Verify
         /// </summary>
-        /// <param name="wallet">Wallet</param>
+        /// <param name="from">Wallet</param>
         /// <param name="txMint">Tx mint</param>
         /// <returns>Transaction</returns>
-        public Transaction Verify(Wallet wallet, Transaction inputTx)
+        public Transaction Verify(WalletAccount from, Transaction inputTx)
         {
-            var from = wallet.GetAccounts().FirstOrDefault();
-
             var inputs = new CoinReference[]
             {
                 new CoinReference()
@@ -403,25 +394,16 @@ namespace NeoContract.UnitTests
             {
                 new TransactionOutput()
                 {
-                    AssetId = AssetId, // Asset Id, this is GAS
-                    ScriptHash = from.ScriptHash, // From (wallet)
-                    Value = inputTx.Outputs[0].Value // Value
+                    AssetId = AssetId, // Asset Id (this is GAS)
+                    ScriptHash = from.ScriptHash, // User wallet (from)
+                    Value = inputTx.Outputs[0].Value // Amount
                 }
             };
 
-            var verificationScript = new byte[0];
-            using (var sb = new ScriptBuilder())
-            {
-                sb.EmitPush(2);
-                sb.EmitPush("1");
-                verificationScript = sb.ToArray();
-            }
-
             var witness = new Witness
             {
-                InvocationScript = verificationScript,
-                //未部署的合约不能执行 Storage.Get() 方法，所以要将合约部署，而不是调用本地的 AVM 文件
-                VerificationScript = new byte[0] // SGAS_Contract
+                InvocationScript = GetFakeScriptForVerification(),
+                VerificationScript = new byte[0] // SGAS_Contract (Full Smart contract, neo take this script from the blockchain)
             };
 
             var tx = new ContractTransaction

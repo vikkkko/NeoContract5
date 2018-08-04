@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Net;
 using Neo;
 using Neo.Core;
@@ -48,10 +49,12 @@ namespace NeoContract.UnitTests
 
             using (wallet.Unlock(walletPassword))
             {
+                var from = wallet.GetAccounts().FirstOrDefault();
+
                 Console.WriteLine("Mint");
 
                 // Transaction txMint = rpc.GetTransaction(inputHashForTxMint);
-                Transaction txMint = test.MintTokens(wallet, mintAmount, inputHashForTxMint);
+                Transaction txMint = test.MintTokens(wallet, from, mintAmount, inputHashForTxMint);
 
                 Console.WriteLine("Press enter for: send Mint");
 
@@ -59,7 +62,7 @@ namespace NeoContract.UnitTests
                 Console.WriteLine(rpc.SendTransaction(txMint).ToString());
                 Console.WriteLine("Refund");
 
-                Transaction txRefund = test.Refund(wallet, rpc.GetTransaction(inputHashForTxRefund));
+                Transaction txRefund = test.Refund(from, rpc.GetTransaction(inputHashForTxRefund));
 
                 Console.WriteLine("Press enter for: send Refund (Ensure that the mint was received!)");
 
@@ -67,7 +70,7 @@ namespace NeoContract.UnitTests
                 Console.WriteLine(rpc.SendTransaction(txRefund).ToString());
                 Console.WriteLine("Verify");
 
-                Transaction txVerify = test.Verify(wallet, txRefund);
+                Transaction txVerify = test.Verify(from, txRefund);
 
                 Console.WriteLine("Press enter for: send Verify");
                 Console.ReadLine();
