@@ -105,17 +105,17 @@ namespace SGAS
 
                 if (method == "transferAPP") return TransferAPP((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
             }
-            //else if (Runtime.Trigger == TriggerType.VerificationR) //向后兼容
-            //{
-            //    if (method != "mintTokens") return false;
-            //    var tx = ExecutionEngine.ScriptContainer as Transaction;
-            //    foreach (var output in tx.GetOutputs())
-            //    {
-            //        if (output.ScriptHash == currentHash && output.AssetId.AsBigInteger() != AssetId.AsBigInteger())
-            //            return false;
-            //    }
-            //    return true;
-            //}
+            else if (Runtime.Trigger == TriggerType.VerificationR) //向后兼容，拒绝接受其它资产
+            {
+                var currentHash = ExecutionEngine.ExecutingScriptHash;
+                var tx = ExecutionEngine.ScriptContainer as Transaction;
+                foreach (var output in tx.GetOutputs())
+                {
+                    if (output.ScriptHash == currentHash && output.AssetId.AsBigInteger() != AssetId.AsBigInteger())
+                        return false;
+                }
+                return true;
+            }
             return false;
         }
 
