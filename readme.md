@@ -20,12 +20,10 @@ neo-gui 2.7.6
 | symbol                   | see nep-5                          | neo-gui                        | ✅           |
 | totalSupply              | see nep-5                          | neo-gui                        | ✅           |
 | transfer                 | see nep-5                          | neo-gui or neo-cli             | ✅           |
-| transferAPP              | transfer from other smart contract | neo-gui + other smart contract | 👩‍💻          |
+| transferAPP              | transfer from other smart contract | neo-gui + other smart contract | ✅           |
 | TriggerType.Verification |                                    | c# code + neo-cli              | ✅           |
 
 Useful Test Tools: [https://github.com/chenzhitong/ApplicationLogsTools](https://github.com/chenzhitong/ApplicationLogsTools)
-
-2018/7/29 Testing in progress.
 
 备注：
 
@@ -41,3 +39,7 @@ var callscript = ExecutionEngine.CallingScriptHash;
 Storage.Get() 如果查询不到的话，返回 byte[0] 而不是 null
 
 Application 触发器中如果调用 CheckWitness() 的话，需要在 TransactionAttribute 中传附加人的签名 Usage = TransactionAttributeUsage.Script Data = ScriptHash，并且在 Scripts 中添加一个新的 Witness
+
+推荐使用 StorageMap 来读写存储区，而不是直接用 Storage.Get 或 Storage.Put
+
+NEP-5 中，参数错误应该抛出异常，而不是返回 false
