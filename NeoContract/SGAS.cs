@@ -121,7 +121,8 @@ namespace SGAS
         [DisplayName("getTxInfo")]
         public static TransferInfo GetTxInfo(byte[] txid)
         {
-            var result = Storage.Get(Storage.CurrentContext, txid);
+            StorageMap txInfo = Storage.CurrentContext.CreateMap(nameof(txInfo));
+            var result = txInfo.Get(txid);
             if (result.Length == 0) return null;
             return Helper.Deserialize(result) as TransferInfo;
         }
@@ -242,7 +243,9 @@ namespace SGAS
                 to = to,
                 value = value
             };
-            Storage.Put(Storage.CurrentContext, txid, Helper.Serialize(info)); //1
+
+            StorageMap txInfo = Storage.CurrentContext.CreateMap(nameof(txInfo));
+            txInfo.Put(txid, Helper.Serialize(info)); //1
         }
 
         [DisplayName("symbol")]
