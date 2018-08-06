@@ -152,6 +152,10 @@ namespace SGAS
                 }
             }
 
+            var lastTx = Storage.Get(Storage.CurrentContext, "lasttx");
+            if (tx.Hash == lastTx) return false;
+            Storage.Put(Storage.CurrentContext, "lasttx", tx.Hash);
+
             if (sender.AsBigInteger() == ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
 
             //兑换数量
