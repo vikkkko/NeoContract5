@@ -295,7 +295,7 @@ namespace SGAS
 
             //付款人减少余额
             if (fromAmount == amount)
-                Storage.Delete(Storage.CurrentContext, from); //0.1
+                asset.Delete(from); //0.1
             else
                 asset.Put(from, fromAmount - amount); //1
 
@@ -333,7 +333,7 @@ namespace SGAS
 
             //付款人减少余额
             if (fromAmount == amount)
-                Storage.Delete(Storage.CurrentContext, from); //0.1
+                asset.Delete(from); //0.1
             else
                 asset.Put(from, fromAmount - amount); //1
 
