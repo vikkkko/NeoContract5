@@ -258,16 +258,16 @@ namespace SGAS
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
             //形参校验
-            if (from == to)
-                return true;
             if (from.Length != 20 || to.Length != 20 || amount <= 0 || !IsPayable(to) || !Runtime.CheckWitness(from)/*0.2*/)
                 return false;
-
-            //付款人减少余额
             var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
             if (fromAmount < amount)
                 return false;
-            else if (fromAmount == amount)
+            if (from == to)
+                return true;
+
+            //付款人减少余额
+            if (fromAmount == amount)
                 Storage.Delete(Storage.CurrentContext, from); //0.1
             else
                 Storage.Put(Storage.CurrentContext, from, fromAmount - amount); //1
@@ -286,16 +286,16 @@ namespace SGAS
         public static object TransferAPP(byte[] from, byte[] to, BigInteger amount, byte[] callscript)
         {
             //形参校验
-            if (from == to)
-                return true;
             if (from.Length != 20 || to.Length != 20 || amount <= 0 || !IsPayable(to) || from.AsBigInteger() != callscript.AsBigInteger())
                 return false;
-
-            //付款人减少余额
             var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
             if (fromAmount < amount)
                 return false;
-            else if (fromAmount == amount)
+            if (from == to)
+                return true;
+
+            //付款人减少余额
+            if (fromAmount == amount)
                 Storage.Delete(Storage.CurrentContext, from); //0.1
             else
                 Storage.Put(Storage.CurrentContext, from, fromAmount - amount); //1
