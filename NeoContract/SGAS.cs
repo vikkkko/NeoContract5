@@ -4,6 +4,7 @@ using Neo.SmartContract.Framework.Services.System;
 using Helper = Neo.SmartContract.Framework.Helper;
 using System.ComponentModel;
 using System.Numerics;
+using System;
 
 namespace SGAS
 {
@@ -95,6 +96,8 @@ namespace SGAS
                 if (method == "refund") return Refund((byte[])args[0]);
 
                 if (method == "symbol") return Symbol();
+                
+                if (method == "supportedStandards") return SupportedStandards();
 
                 if (method == "totalSupply") return TotalSupply();
 
@@ -265,6 +268,9 @@ namespace SGAS
 
         [DisplayName("symbol")]
         public static string Symbol() => "SGAS";
+
+        [DisplayName("supportedStandards")]
+        public static object SupportedStandards() => "{\"NEP-5\", \"NEP-7\", \"NEP-10\"}";
 
         [DisplayName("totalSupply")]
         public static BigInteger TotalSupply()
