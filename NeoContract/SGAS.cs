@@ -123,7 +123,7 @@ namespace SGAS
         public static BigInteger BalanceOf(byte[] account)
         {
             if (account.Length != 20)
-                return 0;
+                throw new InvalidOperationException("The parameters account SHOULD be 20-byte addresses.");
             return asset.Get(account).AsBigInteger(); //0.1
         }
         [DisplayName("decimals")]
@@ -133,7 +133,7 @@ namespace SGAS
         public static byte[] GetRefundTarget(byte[] txid)
         {
             if (txid.Length != 32)
-                return null;
+                throw new InvalidOperationException("The parameters txid SHOULD be 32-byte tx hash.");
             return refund.Get(txid); //0.1
         }
 
@@ -141,7 +141,7 @@ namespace SGAS
         public static TransferInfo GetTxInfo(byte[] txid)
         {
             if (txid.Length != 32)
-                return null;
+                throw new InvalidOperationException("The parameters txid SHOULD be 32-byte tx hash.");
             var result = txInfo.Get(txid); //0.1
             if (result.Length == 0) return null;
             return Helper.Deserialize(result) as TransferInfo;
@@ -216,6 +216,8 @@ namespace SGAS
         [DisplayName("refund")]
         public static bool Refund(byte[] from)
         {
+            if (from.Length != 20)
+                throw new InvalidOperationException("The parameters from SHOULD be 20-byte addresses.");
             var tx = ExecutionEngine.ScriptContainer as Transaction;
             //0 号 output 是用户待退回的资产
             var preRefund = tx.GetOutputs()[0];
@@ -273,16 +275,17 @@ namespace SGAS
         public static object SupportedStandards() => "{\"NEP-5\", \"NEP-7\", \"NEP-10\"}";
 
         [DisplayName("totalSupply")]
-        public static BigInteger TotalSupply()
-        {
-            return contract.Get("totalSupply").AsBigInteger(); //0.1
-        }
+        public static BigInteger TotalSupply() => contract.Get("totalSupply").AsBigInteger(); //0.1
 
         [DisplayName("transfer")]
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
             //形参校验
-            if (from.Length != 20 || to.Length != 20 || amount <= 0 || !IsPayable(to) || !Runtime.CheckWitness(from)/*0.2*/)
+            if (from.Length != 20 || to.Length != 20)
+                throw new InvalidOperationException("The parameters from and to SHOULD be 20-byte addresses.");
+            if (amount <= 0)
+                throw new InvalidOperationException("The parameter amount MUST be greater than or equal to 0.");
+            if (!IsPayable(to) || !Runtime.CheckWitness(from)/*0.2*/)
                 return false;
             var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             if (fromAmount < amount)
@@ -306,11 +309,21 @@ namespace SGAS
             return true;
         }
 
-        [DisplayName("transferAPP")]
-        public static object TransferAPP(byte[] from, byte[] to, BigInteger amount, byte[] callscript)
+        [DisplayName("transferAPP")] //Only for ABI file
+        public static bool TransferAPP(byte[] from, byte[] to, BigInteger amount)
+        {
+            return true;
+        }
+
+        //Methods of actual execution
+        private static bool TransferAPP(byte[] from, byte[] to, BigInteger amount, byte[] callscript)
         {
             //形参校验
-            if (from.Length != 20 || to.Length != 20 || amount <= 0 || !IsPayable(to) || from.AsBigInteger() != callscript.AsBigInteger())
+            if (from.Length != 20 || to.Length != 20)
+                throw new InvalidOperationException("The parameters from and to SHOULD be 20-byte addresses.");
+            if (amount <= 0)
+                throw new InvalidOperationException("The parameter amount MUST be greater than or equal to 0.");
+            if (!IsPayable(to) || from.AsBigInteger() != callscript.AsBigInteger())
                 return false;
             var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             if (fromAmount < amount)
