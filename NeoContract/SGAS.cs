@@ -117,17 +117,29 @@ namespace SGAS
         }
 
         [DisplayName("balanceOf")]
-        public static BigInteger BalanceOf(byte[] account) => asset.Get(account).AsBigInteger(); //0.1
+        public static BigInteger BalanceOf(byte[] account)
+        {
+            if (account.Length != 20)
+                return 0;
+            return asset.Get(account).AsBigInteger(); //0.1
+        }
         [DisplayName("decimals")]
         public static byte Decimals() => 8;
 
         [DisplayName("getRefundTarget")]
-        public static byte[] GetRefundTarget(byte[] txid) => refund.Get(txid); //0.1
+        public static byte[] GetRefundTarget(byte[] txid)
+        {
+            if (txid.Length != 32)
+                return null;
+            return refund.Get(txid); //0.1
+        }
 
         [DisplayName("getTxInfo")]
         public static TransferInfo GetTxInfo(byte[] txid)
         {
-            var result = txInfo.Get(txid);
+            if (txid.Length != 32)
+                return null;
+            var result = txInfo.Get(txid); //0.1
             if (result.Length == 0) return null;
             return Helper.Deserialize(result) as TransferInfo;
         }
@@ -158,9 +170,9 @@ namespace SGAS
                 }
             }
             
-            var lastTx = contract.Get("lasttx");
+            var lastTx = contract.Get("lasttx"); //0.1
             if (tx.Hash == lastTx) return false;
-            contract.Put("lasttx", tx.Hash);
+            contract.Put("lasttx", tx.Hash); //1
 
             if (sender.AsBigInteger() == ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
 
