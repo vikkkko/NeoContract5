@@ -18,7 +18,7 @@ namespace SGAS
         public static event deleRefundTarget Refunded;
         public delegate void deleRefundTarget(byte[] txid, byte[] who);
 
-        private static readonly byte[] AssetId = Helper.HexToBytes("e72d286979ee6cb1b7e65dfddfb2e384100b8d148e7758de42e4168b71792c60"); //全局资产的资产ID，逆序，这里是NeoGas
+        private static readonly byte[] AssetId = Helper.HexToBytes("e72d286979ee6cb1b7e65dfddfb2e384100b8d148e7758de42e4168b71792c60"); //GAS ID, littleEndian
 
         //StorageMap: contract, refund, asset, txInfo,
         private static StorageMap contract = Storage.CurrentContext.CreateMap(nameof(contract)); //key: "totalSupply", "lastTx"
@@ -34,38 +34,36 @@ namespace SGAS
                 var inputs = tx.GetInputs();
                 var outputs = tx.GetOutputs();
 
-                //检查输入是不是有被标记过
-                
+                //Check if the input has been marked        
                 for (var i = 0; i < inputs.Length; i++)
                 {
-                    if (inputs[i].PrevIndex == 0)//如果 utxo n 为0 的话，是有可能是一个标记utxo的
+                    if (inputs[i].PrevIndex == 0)//If UTXO n is 0, it is possible to be a marker UTXO
                     {
                         var refundMan = refund.Get(inputs[i].PrevHash); //0.1
-                        //检测到标记为待退回的 input
+                        //If the input that is marked for refund
                         if (refundMan.Length > 0)
                         {
-                            //退回时只允许一个 input，一个 output
+                            //Only one input and one output is allowed in refund
                             if (inputs.Length != 1 || outputs.Length != 1)
                                 return false;
-                            //如果只有一个输入，一个输出，并且目的转账地址就是授权地址，允许转账
                             return outputs[0].ScriptHash.AsBigInteger() == refundMan.AsBigInteger();
                         }
                     }
                 }
                 var currentHash = ExecutionEngine.ExecutingScriptHash;
-                //如果所有的 inputs 都没有被标记为待退回
+                //If all the inputs are not marked for refund
                 BigInteger inputAmount = 0;
                 foreach (var refe in tx.GetReferences())
                 {
                     if (refe.AssetId.AsBigInteger() != AssetId.AsBigInteger())
-                        return false;//不允许操作除gas以外的
+                        return false;//Not allowed to operate assets other than GAS
 
                     if (refe.ScriptHash.AsBigInteger() != currentHash.AsBigInteger())
-                        return false;//不允许混入其它地址
+                        return false;//Not allowed to mingle with other addresses
 
                     inputAmount += refe.Value;
                 }
-                //检查有没有钱离开本合约
+                //Check that there is no money left this contract
                 BigInteger outputAmount = 0;
                 foreach (var output in outputs)
                 {
@@ -105,7 +103,7 @@ namespace SGAS
 
                 if (method == "transferAPP") return TransferAPP((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
             }
-            else if (Runtime.Trigger == TriggerType.VerificationR) //向后兼容，拒绝接受其它资产
+            else if (Runtime.Trigger == TriggerType.VerificationR) //Backward compatibility, refusing to accept other assets
             {
                 var currentHash = ExecutionEngine.ExecutingScriptHash;
                 var tx = ExecutionEngine.ScriptContainer as Transaction;
@@ -123,26 +121,26 @@ namespace SGAS
         public static BigInteger BalanceOf(byte[] account)
         {
             if (account.Length != 20)
-                throw new InvalidOperationException("The parameters account SHOULD be 20-byte addresses.");
+                throw new InvalidOperationException("The parameter account SHOULD be 20-byte addresses.");
             return asset.Get(account).AsBigInteger(); //0.1
         }
         [DisplayName("decimals")]
         public static byte Decimals() => 8;
 
         [DisplayName("getRefundTarget")]
-        public static byte[] GetRefundTarget(byte[] txid)
+        public static byte[] GetRefundTarget(byte[] txId)
         {
-            if (txid.Length != 32)
-                throw new InvalidOperationException("The parameters txid SHOULD be 32-byte tx hash.");
-            return refund.Get(txid); //0.1
+            if (txId.Length != 32)
+                throw new InvalidOperationException("The parameter txId SHOULD be 32-byte transaction hash.");
+            return refund.Get(txId); //0.1
         }
 
         [DisplayName("getTxInfo")]
-        public static TransferInfo GetTxInfo(byte[] txid)
+        public static TransferInfo GetTxInfo(byte[] txId)
         {
-            if (txid.Length != 32)
-                throw new InvalidOperationException("The parameters txid SHOULD be 32-byte tx hash.");
-            var result = txInfo.Get(txid); //0.1
+            if (txId.Length != 32)
+                throw new InvalidOperationException("The parameter txId SHOULD be 32-byte transaction hash.");
+            var result = txInfo.Get(txId); //0.1
             if (result.Length == 0) return null;
             return Helper.Deserialize(result) as TransferInfo;
         }
@@ -154,14 +152,14 @@ namespace SGAS
         }
 
         /// <summary>
-        /// 全局资产 -> NEP5资产
+        /// Global Asset -> NEP5 Asset
         /// </summary>
         [DisplayName("mintTokens")]
         public static bool MintTokens()
         {
             var tx = ExecutionEngine.ScriptContainer as Transaction;
 
-            //发送全局资产的人，接收NEP5资产的人
+            //Person who sends a global asset, receives a NEP5 asset
             byte[] sender = null;
             var inputs = tx.GetReferences();
             for (var i = 0; i < inputs.Length; i++)
@@ -173,13 +171,13 @@ namespace SGAS
                 }
             }
             
-            var lastTx = contract.Get("lasttx"); //0.1
+            var lastTx = contract.Get("lastTx"); //0.1
             if (tx.Hash == lastTx) return false;
-            contract.Put("lasttx", tx.Hash); //1
+            contract.Put("lastTx", tx.Hash); //1
 
             if (sender.AsBigInteger() == ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
 
-            //兑换数量
+            //Amount of exchange
             var outputs = tx.GetOutputs();
             ulong value = 0;
             foreach (var output in outputs)
@@ -191,16 +189,15 @@ namespace SGAS
                 }
             }
 
-            //增加合约资产的总量
+            //Increase the total amount of contract assets
             var totalSupply = contract.Get("totalSupply").AsBigInteger(); //0.1
             totalSupply += value;
             contract.Put("totalSupply", totalSupply); //1
 
-            //分发资产
+            //Issue NEP-5 asset
             var amount = asset.Get(sender).AsBigInteger(); //0.1
             asset.Put(sender, amount + value); //1
 
-            //通知
             SetTxInfo(null, sender, value);
             Transferred(null, sender, value);
             return true;
@@ -210,30 +207,29 @@ namespace SGAS
         public static string Name() => "NEP5 GAS";
 
         /// <summary>
-        /// NEP5资产 -> 全局资产
-        /// 用户在发起 Refund 时需要构造一个从合约地址到合约地址的转账，转账金额等于用户想退回的金额（如有找零也要找零到合约地址），然后智能合约会对其进行标记。
+        /// NEP5 Asset -> Global Asset
+        /// In the pre-refund phase you need to build a TX (SC -> SC) whose Input is a UTXO of the contract. 
         /// </summary>
         [DisplayName("refund")]
         public static bool Refund(byte[] from)
         {
             if (from.Length != 20)
-                throw new InvalidOperationException("The parameters from SHOULD be 20-byte addresses.");
+                throw new InvalidOperationException("The parameter from SHOULD be 20-byte addresses.");
             var tx = ExecutionEngine.ScriptContainer as Transaction;
-            //0 号 output 是用户待退回的资产
+            //output[0] Is the asset that the user want to refund
             var preRefund = tx.GetOutputs()[0];
-            //退回的资产不对，退回失败
+            //refund assets wrong, failed
             if (preRefund.AssetId.AsBigInteger() != AssetId.AsBigInteger()) return false;
 
-            //不是转给自身，退回失败
+            //Not to itself, failed
             if (preRefund.ScriptHash.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
-            
-            //因为 Refund 的交易的 inputs 和 outputs 都来自合约地址，所以很可能多个人构造相同的交易。如果当前的交易已经被其它人标记为待退回，则退回失败
+
+            //double refund
             if (refund.Get(tx.Hash).Length > 0) return false; //0.1
 
-            //不是本人申请的，退回失败
             if (!Runtime.CheckWitness(from)) return false; //0.2
 
-            //付款人减少余额
+            //Reduce the balance of the refund person
             var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             var preRefundValue = preRefund.Value;
             if (fromAmount < preRefundValue)
@@ -243,15 +239,13 @@ namespace SGAS
             else
                 asset.Put(from, fromAmount - preRefundValue); //1
 
-            //对待退回的 output 进行标记（实际只标记 txid，output index 默认为 0）
             refund.Put(tx.Hash, from); //1
 
-            //改变总量
+            //Change the totalSupply
             var totalSupply = contract.Get("totalSupply").AsBigInteger(); //0.1
             totalSupply -= preRefundValue;
             contract.Put("totalSupply", totalSupply); //1
 
-            //通知
             Refunded(tx.Hash, from);
             return true;
         }
@@ -280,7 +274,7 @@ namespace SGAS
         [DisplayName("transfer")]
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
         {
-            //形参校验
+            //Check parameters
             if (from.Length != 20 || to.Length != 20)
                 throw new InvalidOperationException("The parameters from and to SHOULD be 20-byte addresses.");
             if (amount <= 0)
@@ -293,17 +287,16 @@ namespace SGAS
             if (from == to)
                 return true;
 
-            //付款人减少余额
+            //Reduce payer balances
             if (fromAmount == amount)
                 asset.Delete(from); //0.1
             else
                 asset.Put(from, fromAmount - amount); //1
 
-            //收款人增加余额
+            //Increase the payee balance
             var toAmount = asset.Get(to).AsBigInteger(); //0.1
             asset.Put(to, toAmount + amount); //1
-
-            //通知
+            
             SetTxInfo(from, to, amount);
             Transferred(from, to, amount);
             return true;
@@ -318,7 +311,7 @@ namespace SGAS
         //Methods of actual execution
         private static bool TransferAPP(byte[] from, byte[] to, BigInteger amount, byte[] callscript)
         {
-            //形参校验
+            //Check parameters
             if (from.Length != 20 || to.Length != 20)
                 throw new InvalidOperationException("The parameters from and to SHOULD be 20-byte addresses.");
             if (amount <= 0)
@@ -331,17 +324,16 @@ namespace SGAS
             if (from == to)
                 return true;
 
-            //付款人减少余额
+            //Reduce payer balances
             if (fromAmount == amount)
                 asset.Delete(from); //0.1
             else
                 asset.Put(from, fromAmount - amount); //1
 
-            //收款人增加余额
+            //Increase the payee balance
             var toAmount = asset.Get(to).AsBigInteger(); //0.1
             asset.Put(to, toAmount + amount); //1
 
-            //通知
             SetTxInfo(from, to, amount);
             Transferred(from, to, amount);
             return true;
