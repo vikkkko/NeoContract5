@@ -19,6 +19,12 @@ namespace SGAS
 
         private static readonly byte[] AssetId = Helper.HexToBytes("e72d286979ee6cb1b7e65dfddfb2e384100b8d148e7758de42e4168b71792c60"); //全局资产的资产ID，逆序，这里是NeoGas
 
+        //StorageMap: contract, refund, asset, txInfo,
+        private static StorageMap contract = Storage.CurrentContext.CreateMap(nameof(contract)); //key: "totalSupply", "lastTx"
+        private static StorageMap refund = Storage.CurrentContext.CreateMap(nameof(refund)); //key: txHash
+        private static StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset)); //key: account
+        private static StorageMap txInfo = Storage.CurrentContext.CreateMap(nameof(txInfo)); //key: txHash
+
         public static object Main(string method, object[] args)
         {
             if (Runtime.Trigger == TriggerType.Verification)
@@ -28,11 +34,12 @@ namespace SGAS
                 var outputs = tx.GetOutputs();
 
                 //检查输入是不是有被标记过
+                
                 for (var i = 0; i < inputs.Length; i++)
                 {
                     if (inputs[i].PrevIndex == 0)//如果 utxo n 为0 的话，是有可能是一个标记utxo的
                     {
-                        var refundMan = Storage.Get(Storage.CurrentContext, inputs[i].PrevHash); //0.1
+                        var refundMan = refund.Get(inputs[i].PrevHash); //0.1
                         //检测到标记为待退回的 input
                         if (refundMan.Length > 0)
                         {
@@ -110,18 +117,16 @@ namespace SGAS
         }
 
         [DisplayName("balanceOf")]
-        public static BigInteger BalanceOf(byte[] account) => Storage.Get(Storage.CurrentContext, account).AsBigInteger(); //0.1
-
+        public static BigInteger BalanceOf(byte[] account) => asset.Get(account).AsBigInteger(); //0.1
         [DisplayName("decimals")]
         public static byte Decimals() => 8;
 
         [DisplayName("getRefundTarget")]
-        public static byte[] GetRefundTarget(byte[] txid) => Storage.Get(Storage.CurrentContext, txid); //0.1
+        public static byte[] GetRefundTarget(byte[] txid) => refund.Get(txid); //0.1
 
         [DisplayName("getTxInfo")]
         public static TransferInfo GetTxInfo(byte[] txid)
         {
-            StorageMap txInfo = Storage.CurrentContext.CreateMap(nameof(txInfo));
             var result = txInfo.Get(txid);
             if (result.Length == 0) return null;
             return Helper.Deserialize(result) as TransferInfo;
@@ -152,10 +157,10 @@ namespace SGAS
                     break;
                 }
             }
-
-            var lastTx = Storage.Get(Storage.CurrentContext, "lasttx");
+            
+            var lastTx = contract.Get("lasttx");
             if (tx.Hash == lastTx) return false;
-            Storage.Put(Storage.CurrentContext, "lasttx", tx.Hash);
+            contract.Put("lasttx", tx.Hash);
 
             if (sender.AsBigInteger() == ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
 
@@ -172,13 +177,13 @@ namespace SGAS
             }
 
             //增加合约资产的总量
-            var totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
+            var totalSupply = contract.Get("totalSupply").AsBigInteger(); //0.1
             totalSupply += value;
-            Storage.Put(Storage.CurrentContext, "totalSupply", totalSupply); //1
+            contract.Put("totalSupply", totalSupply); //1
 
             //分发资产
-            var amount = Storage.Get(Storage.CurrentContext, sender).AsBigInteger(); //0.1
-            Storage.Put(Storage.CurrentContext, sender, amount + value); //1
+            var amount = asset.Get(sender).AsBigInteger(); //0.1
+            asset.Put(sender, amount + value); //1
 
             //通知
             SetTxInfo(null, sender, value);
@@ -206,28 +211,28 @@ namespace SGAS
             if (preRefund.ScriptHash.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
             
             //因为 Refund 的交易的 inputs 和 outputs 都来自合约地址，所以很可能多个人构造相同的交易。如果当前的交易已经被其它人标记为待退回，则退回失败
-            if (Storage.Get(Storage.CurrentContext, tx.Hash).Length > 0) return false; //0.1
+            if (refund.Get(tx.Hash).Length > 0) return false; //0.1
 
             //不是本人申请的，退回失败
             if (!Runtime.CheckWitness(from)) return false; //0.2
 
             //付款人减少余额
-            var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
+            var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             var preRefundValue = preRefund.Value;
             if (fromAmount < preRefundValue)
                 return false;
             else if (fromAmount == preRefundValue)
-                Storage.Delete(Storage.CurrentContext, from); //0.1
+                asset.Delete(from); //0.1
             else
-                Storage.Put(Storage.CurrentContext, from, fromAmount - preRefundValue); //1
+                asset.Put(from, fromAmount - preRefundValue); //1
 
             //对待退回的 output 进行标记（实际只标记 txid，output index 默认为 0）
-            Storage.Put(Storage.CurrentContext, tx.Hash, from); //1
+            refund.Put(tx.Hash, from); //1
 
             //改变总量
-            var totalSupply = Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
+            var totalSupply = contract.Get("totalSupply").AsBigInteger(); //0.1
             totalSupply -= preRefundValue;
-            Storage.Put(Storage.CurrentContext, "totalSupply", totalSupply); //1
+            contract.Put("totalSupply", totalSupply); //1
 
             //通知
             Refunded(tx.Hash, from);
@@ -243,8 +248,6 @@ namespace SGAS
                 to = to,
                 value = value
             };
-
-            StorageMap txInfo = Storage.CurrentContext.CreateMap(nameof(txInfo));
             txInfo.Put(txid, Helper.Serialize(info)); //1
         }
 
@@ -252,7 +255,10 @@ namespace SGAS
         public static string Symbol() => "SGAS";
 
         [DisplayName("totalSupply")]
-        public static BigInteger TotalSupply() => Storage.Get(Storage.CurrentContext, "totalSupply").AsBigInteger(); //0.1
+        public static BigInteger TotalSupply()
+        {
+            return contract.Get("totalSupply").AsBigInteger(); //0.1
+        }
 
         [DisplayName("transfer")]
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
@@ -260,7 +266,7 @@ namespace SGAS
             //形参校验
             if (from.Length != 20 || to.Length != 20 || amount <= 0 || !IsPayable(to) || !Runtime.CheckWitness(from)/*0.2*/)
                 return false;
-            var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
+            var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             if (fromAmount < amount)
                 return false;
             if (from == to)
@@ -270,11 +276,11 @@ namespace SGAS
             if (fromAmount == amount)
                 Storage.Delete(Storage.CurrentContext, from); //0.1
             else
-                Storage.Put(Storage.CurrentContext, from, fromAmount - amount); //1
+                asset.Put(from, fromAmount - amount); //1
 
             //收款人增加余额
-            var toAmount = Storage.Get(Storage.CurrentContext, to).AsBigInteger(); //0.1
-            Storage.Put(Storage.CurrentContext, to, toAmount + amount); //1
+            var toAmount = asset.Get(to).AsBigInteger(); //0.1
+            asset.Put(to, toAmount + amount); //1
 
             //通知
             SetTxInfo(from, to, amount);
@@ -288,7 +294,7 @@ namespace SGAS
             //形参校验
             if (from.Length != 20 || to.Length != 20 || amount <= 0 || !IsPayable(to) || from.AsBigInteger() != callscript.AsBigInteger())
                 return false;
-            var fromAmount = Storage.Get(Storage.CurrentContext, from).AsBigInteger(); //0.1
+            var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             if (fromAmount < amount)
                 return false;
             if (from == to)
@@ -298,11 +304,11 @@ namespace SGAS
             if (fromAmount == amount)
                 Storage.Delete(Storage.CurrentContext, from); //0.1
             else
-                Storage.Put(Storage.CurrentContext, from, fromAmount - amount); //1
+                asset.Put(from, fromAmount - amount); //1
 
             //收款人增加余额
-            var toAmount = Storage.Get(Storage.CurrentContext, to).AsBigInteger(); //0.1
-            Storage.Put(Storage.CurrentContext, to, toAmount + amount); //1
+            var toAmount = asset.Get(to).AsBigInteger(); //0.1
+            asset.Put(to, toAmount + amount); //1
 
             //通知
             SetTxInfo(from, to, amount);
