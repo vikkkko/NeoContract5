@@ -20,11 +20,10 @@ namespace SGAS
 
         private static readonly byte[] AssetId = Helper.HexToBytes("e72d286979ee6cb1b7e65dfddfb2e384100b8d148e7758de42e4168b71792c60"); //GAS ID, littleEndian
 
-        //StorageMap: contract, refund, asset, txInfo,
-        private static StorageMap contract = Storage.CurrentContext.CreateMap(nameof(contract)); //key: "totalSupply", "lastTx"
-        private static StorageMap refund = Storage.CurrentContext.CreateMap(nameof(refund)); //key: txHash
-        private static StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset)); //key: account
-        private static StorageMap txInfo = Storage.CurrentContext.CreateMap(nameof(txInfo)); //key: txHash
+        //StorageMap contract, key: "totalSupply", "lastTx"
+        //StorageMap refund, key: txHash
+        //StorageMap asset, key: account
+        //StorageMap txInfo, key: txHash
 
         public static object Main(string method, object[] args)
         {
@@ -39,6 +38,7 @@ namespace SGAS
                 {
                     if (inputs[i].PrevIndex == 0)//If UTXO n is 0, it is possible to be a marker UTXO
                     {
+                        StorageMap refund = Storage.CurrentContext.CreateMap(nameof(refund));
                         var refundMan = refund.Get(inputs[i].PrevHash); //0.1
                         //If the input that is marked for refund
                         if (refundMan.Length > 0)
@@ -92,7 +92,7 @@ namespace SGAS
                 if (method == "refund") return Refund((byte[])args[0]);
 
                 if (method == "symbol") return Symbol();
-                
+
                 if (method == "supportedStandards") return SupportedStandards();
 
                 if (method == "totalSupply") return TotalSupply();
@@ -120,6 +120,7 @@ namespace SGAS
         {
             if (account.Length != 20)
                 throw new InvalidOperationException("The parameter account SHOULD be 20-byte addresses.");
+            StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset));
             return asset.Get(account).AsBigInteger(); //0.1
         }
         [DisplayName("decimals")]
@@ -130,6 +131,7 @@ namespace SGAS
         {
             if (txId.Length != 32)
                 throw new InvalidOperationException("The parameter txId SHOULD be 32-byte transaction hash.");
+            StorageMap refund = Storage.CurrentContext.CreateMap(nameof(refund));
             return refund.Get(txId); //0.1
         }
 
@@ -138,6 +140,7 @@ namespace SGAS
         {
             if (txId.Length != 32)
                 throw new InvalidOperationException("The parameter txId SHOULD be 32-byte transaction hash.");
+            StorageMap txInfo = Storage.CurrentContext.CreateMap(nameof(txInfo));
             var result = txInfo.Get(txId); //0.1
             if (result.Length == 0) return null;
             return Helper.Deserialize(result) as TransferInfo;
@@ -168,7 +171,7 @@ namespace SGAS
                     break;
                 }
             }
-            
+            StorageMap contract = Storage.CurrentContext.CreateMap(nameof(contract));
             var lastTx = contract.Get("lastTx"); //0.1
             if (tx.Hash == lastTx) return false;
             contract.Put("lastTx", tx.Hash); //1
@@ -193,6 +196,7 @@ namespace SGAS
             contract.Put("totalSupply", totalSupply); //1
 
             //Issue NEP-5 asset
+            StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset));
             var amount = asset.Get(sender).AsBigInteger(); //0.1
             asset.Put(sender, amount + value); //1
 
@@ -223,11 +227,13 @@ namespace SGAS
             if (preRefund.ScriptHash.AsBigInteger() != ExecutionEngine.ExecutingScriptHash.AsBigInteger()) return false;
 
             //double refund
+            StorageMap refund = Storage.CurrentContext.CreateMap(nameof(refund));
             if (refund.Get(tx.Hash).Length > 0) return false; //0.1
 
             if (!Runtime.CheckWitness(from)) return false; //0.2
 
             //Reduce the balance of the refund person
+            StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset));
             var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             var preRefundValue = preRefund.Value;
             if (fromAmount < preRefundValue)
@@ -236,10 +242,10 @@ namespace SGAS
                 asset.Delete(from); //0.1
             else
                 asset.Put(from, fromAmount - preRefundValue); //1
-
             refund.Put(tx.Hash, from); //1
 
             //Change the totalSupply
+            StorageMap contract = Storage.CurrentContext.CreateMap(nameof(contract));
             var totalSupply = contract.Get("totalSupply").AsBigInteger(); //0.1
             totalSupply -= preRefundValue;
             contract.Put("totalSupply", totalSupply); //1
@@ -247,7 +253,7 @@ namespace SGAS
             Refunded(tx.Hash, from);
             return true;
         }
-        
+
         private static void SetTxInfo(byte[] from, byte[] to, BigInteger value)
         {
             var txid = (ExecutionEngine.ScriptContainer as Transaction).Hash;
@@ -257,6 +263,7 @@ namespace SGAS
                 to = to,
                 value = value
             };
+            StorageMap txInfo = Storage.CurrentContext.CreateMap(nameof(txInfo));
             txInfo.Put(txid, Helper.Serialize(info)); //1
         }
 
@@ -267,7 +274,11 @@ namespace SGAS
         public static object SupportedStandards() => "{\"NEP-5\", \"NEP-7\", \"NEP-10\"}";
 
         [DisplayName("totalSupply")]
-        public static BigInteger TotalSupply() => contract.Get("totalSupply").AsBigInteger(); //0.1
+        public static BigInteger TotalSupply()
+        {
+            StorageMap contract = Storage.CurrentContext.CreateMap(nameof(contract));
+            return contract.Get("totalSupply").AsBigInteger(); //0.1
+        }
 
         [DisplayName("transfer")]
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
@@ -279,6 +290,7 @@ namespace SGAS
                 throw new InvalidOperationException("The parameter amount MUST be greater than or equal to 0.");
             if (!IsPayable(to) || !Runtime.CheckWitness(from)/*0.2*/)
                 return false;
+            StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset));
             var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             if (fromAmount < amount)
                 return false;
@@ -318,6 +330,7 @@ namespace SGAS
                 return false;
             if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
                 return false;
+            StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset));
             var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             if (fromAmount < amount)
                 return false;
