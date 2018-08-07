@@ -77,8 +77,6 @@ namespace SGAS
             {
                 var callscript = ExecutionEngine.CallingScriptHash;
 
-                if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger()) return false;
-
                 if (method == "balanceOf") return BalanceOf((byte[])args[0]);
 
                 if (method == "decimals") return Decimals();
@@ -317,6 +315,8 @@ namespace SGAS
             if (amount <= 0)
                 throw new InvalidOperationException("The parameter amount MUST be greater than or equal to 0.");
             if (!IsPayable(to) || from.AsBigInteger() != callscript.AsBigInteger())
+                return false;
+            if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
                 return false;
             var fromAmount = asset.Get(from).AsBigInteger(); //0.1
             if (fromAmount < amount)
