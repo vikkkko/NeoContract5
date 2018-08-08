@@ -15,13 +15,18 @@ namespace NeoContract.UnitTests
 {
     public static class SGASTest
     {
+        static readonly UInt160 SgasAddress = Wallet.ToScriptHash("APgkHxUfF9sw9PCZc61wK7aRcFmJq8htPV");
+        static readonly UInt160 ScriptHash = new UInt160("0xb776a9c4d2442615af67817e32b56f029bc9c856".Remove(0, 2).HexToBytes().Reverse().ToArray());
+        static readonly UInt160 User = Wallet.ToScriptHash("AJd31a8rYPEBkY1QSxpsGy8mdU4vTYTD4U");
+        static readonly byte[] UserScript = "2103ad1d70f140d84a90ad4491cdf175fa64bfa9287a006e8cbd8f8db8500b5205baac".HexToBytes();
+
         //SGAS MintTokens
         public static void MintTokens()
         {
             var inputs = new List<CoinReference> {
                 //coin reference A
                 new CoinReference(){
-                    PrevHash = new UInt256("0x2eb5b375f7051cafe8b96d7901cd98491e1bc608a9fb9911908f425bb30f3f95".Remove(0, 2).HexToBytes().Reverse().ToArray()),
+                    PrevHash = new UInt256("0xf5088ce508d86197c991ff0ef7651ddf01f3e555f257039c972082250e899210".Remove(0, 2).HexToBytes().Reverse().ToArray()),
                     PrevIndex = 0 //16639 GAS
                 }
             }.ToArray();
@@ -29,22 +34,15 @@ namespace NeoContract.UnitTests
             var outputs = new List<TransactionOutput>{ new TransactionOutput()
             {
                 AssetId = Blockchain.UtilityToken.Hash, //Asset Id, this is GAS
-                ScriptHash = Wallet.ToScriptHash("AG2wnhxQDoerwMSGHCZxtdKCnGKg2Q2HiG"), //SGAS 地址
+                ScriptHash = SgasAddress, //SGAS 地址
                 Value = new Fixed8((long)(1 * (long)Math.Pow(10, 8))) //Value
-            },new TransactionOutput()
-            {
-                AssetId = Blockchain.UtilityToken.Hash, //Asset Id, this is GAS
-                ScriptHash = Wallet.ToScriptHash("AJd31a8rYPEBkY1QSxpsGy8mdU4vTYTD4U"), //找零地址
-                Value = new Fixed8((long)(16638 * (long)Math.Pow(10, 8))) //Value
             }}.ToArray();
-
-            var scriptHash = new UInt160("0x8db627d6e7773afd4368cdca4d09396354b2d902".Remove(0, 2).HexToBytes().Reverse().ToArray());
 
             Transaction tx = null;
 
             using (ScriptBuilder sb = new ScriptBuilder())
             {
-                sb.EmitAppCall(scriptHash, "mintTokens");
+                sb.EmitAppCall(ScriptHash, "mintTokens");
                 sb.Emit(OpCode.THROWIFNOT);
 
                 byte[] nonce = new byte[8];
@@ -114,7 +112,7 @@ namespace NeoContract.UnitTests
         {
             var inputs = new List<CoinReference> {
                 new CoinReference(){
-                    PrevHash = new UInt256("0xa657e8e385649ea31d5b973ed3617fe295b96b3a45acca125bdac6809620983c".Remove(0, 2).HexToBytes().Reverse().ToArray()),
+                    PrevHash = new UInt256("0xdb4c4f1a17b365a68497ef0e118db89b827db24f67ee71d317d38c68c84424ef".Remove(0, 2).HexToBytes().Reverse().ToArray()),
                     PrevIndex = 0 //1
                 }
             }.ToArray();
@@ -122,18 +120,17 @@ namespace NeoContract.UnitTests
             var outputs = new List<TransactionOutput>{ new TransactionOutput()
             {
                 AssetId = Blockchain.UtilityToken.Hash, //Asset Id, this is GAS
-                ScriptHash = Wallet.ToScriptHash("AG2wnhxQDoerwMSGHCZxtdKCnGKg2Q2HiG"), //SGAS 地址
+                ScriptHash = SgasAddress, //SGAS 地址
                 Value = new Fixed8((long)(1 * (long)Math.Pow(10, 8))) //Value
             }}.ToArray();
 
             Transaction tx = null;
             
-            var scriptHash = new UInt160("0x8db627d6e7773afd4368cdca4d09396354b2d902".Remove(0, 2).HexToBytes().Reverse().ToArray());
             var applicationScript = new byte[0];
-            var from = Wallet.ToScriptHash("AJd31a8rYPEBkY1QSxpsGy8mdU4vTYTD4U");
+            
             using (ScriptBuilder sb = new ScriptBuilder())
             {
-                sb.EmitAppCall(scriptHash, "refund", from);
+                sb.EmitAppCall(ScriptHash, "refund", User);
                 sb.Emit(OpCode.THROWIFNOT);
                 applicationScript = sb.ToArray();
             }
@@ -149,7 +146,7 @@ namespace NeoContract.UnitTests
                     new TransactionAttribute
                     {
                         Usage = TransactionAttributeUsage.Script,
-                        Data = from.ToArray()//附加人的 Script Hash
+                        Data = User.ToArray()//附加人的 Script Hash
                     }
                 }
             };
@@ -178,7 +175,7 @@ namespace NeoContract.UnitTests
             var additionalSignature = new byte[0];
             foreach (UInt160 hash in context.ScriptHashes)
             {
-                if (hash == from)
+                if (hash == User)
                 {
                     WalletAccount account = wallet.GetAccount(hash);
                     if (account?.HasKey != true) continue;
@@ -192,16 +189,22 @@ namespace NeoContract.UnitTests
                 sb.EmitPush(additionalSignature);
                 additionalVerificationScript = sb.ToArray();
             }
-
+            var verificationScript = new byte[0];
+            using (ScriptBuilder sb = new ScriptBuilder())
+            {
+                sb.EmitPush(2);
+                sb.EmitPush("1");
+                verificationScript = sb.ToArray();
+            }
             var witness = new Witness
             {
-                InvocationScript = applicationScript,
-                VerificationScript = Blockchain.Default.GetContract(scriptHash).Script
+                InvocationScript = verificationScript,
+                VerificationScript = Blockchain.Default.GetContract(ScriptHash).Script
             };
             var additionalWitness = new Witness
             {
                 InvocationScript = additionalVerificationScript,
-                VerificationScript = "2103ad1d70f140d84a90ad4491cdf175fa64bfa9287a006e8cbd8f8db8500b5205baac".HexToBytes()
+                VerificationScript = UserScript
             };
             var witnesses = new Witness[2] { witness, additionalWitness };
             tx.Scripts = witnesses.ToList().OrderBy(p => p.ScriptHash).ToArray();
@@ -235,7 +238,7 @@ namespace NeoContract.UnitTests
         {
             var inputs = new List<CoinReference> {
                 new CoinReference(){
-                    PrevHash = new UInt256("0x2795c2660e962f012532d5b15454b8238d859d7d135e1cc353d1016930adb003".Remove(0, 2).HexToBytes().Reverse().ToArray()),
+                    PrevHash = new UInt256("0xdb4c4f1a17b365a68497ef0e118db89b827db24f67ee71d317d38c68c84424ef".Remove(0, 2).HexToBytes().Reverse().ToArray()),
                     PrevIndex = 0 //1
                 }
             }.ToArray();
@@ -243,7 +246,7 @@ namespace NeoContract.UnitTests
             var outputs = new List<TransactionOutput>{ new TransactionOutput()
             {
                 AssetId = Blockchain.UtilityToken.Hash, //Asset Id, this is GAS
-                ScriptHash = Wallet.ToScriptHash("AG2wnhxQDoerwMSGHCZxtdKCnGKg2Q2HiG"), //SGAS 地址
+                ScriptHash = SgasAddress,//SGAS 地址
                 Value = new Fixed8((long)(1 * (long)Math.Pow(10, 8))) //Value
             }}.ToArray();
 
@@ -256,18 +259,18 @@ namespace NeoContract.UnitTests
                 sb.EmitPush("1");
                 verificationScript = sb.ToArray();
             }
-            var scriptHash = new UInt160("0x8db627d6e7773afd4368cdca4d09396354b2d902".Remove(0, 2).HexToBytes().Reverse().ToArray());
 
             var witness = new Witness
             {
                 InvocationScript = verificationScript,
                 //未部署的合约不能执行 Storage.Get() 方法，所以要将合约部署，而不是调用本地的 AVM 文件
                 //VerificationScript = File.ReadAllBytes("C:\\Users\\chenz\\Documents\\1Code\\chenzhitong\\NeoContract5\\NeoContract\\bin\\Debug\\SGAS.avm")
-                VerificationScript = Blockchain.Default.GetContract(scriptHash).Script
+                VerificationScript = Blockchain.Default.GetContract(ScriptHash).Script
             };
-            tx = new ContractTransaction
+            tx = new InvocationTransaction
             {
                 Version = 0,
+                Script = new byte[0],
                 Outputs = outputs,
                 Inputs = inputs,
                 Attributes = new TransactionAttribute[0],

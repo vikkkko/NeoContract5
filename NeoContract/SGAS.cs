@@ -97,7 +97,7 @@ namespace SGAS
 
                 if (method == "totalSupply") return TotalSupply();
 
-                if (method == "transfer") return Transfer((byte[])args[0], (byte[])args[1], (BigInteger)args[2]);
+                if (method == "transfer") return Transfer((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
 
                 if (method == "transferAPP") return TransferAPP((byte[])args[0], (byte[])args[1], (BigInteger)args[2], callscript);
             }
@@ -280,14 +280,22 @@ namespace SGAS
             return contract.Get("totalSupply").AsBigInteger(); //0.1
         }
 
-        [DisplayName("transfer")]
+        [DisplayName("transfer")] //Only for ABI file
         public static bool Transfer(byte[] from, byte[] to, BigInteger amount)
+        {
+            return true;
+        }
+
+        //Methods of actual execution
+        private static bool Transfer(byte[] from, byte[] to, BigInteger amount, byte[] callscript)
         {
             //Check parameters
             if (from.Length != 20 || to.Length != 20)
                 throw new InvalidOperationException("The parameters from and to SHOULD be 20-byte addresses.");
             if (amount <= 0)
                 throw new InvalidOperationException("The parameter amount MUST be greater than or equal to 0.");
+            if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
+                return false;
             if (!IsPayable(to) || !Runtime.CheckWitness(from)/*0.2*/)
                 return false;
             StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset));
@@ -327,8 +335,6 @@ namespace SGAS
             if (amount <= 0)
                 throw new InvalidOperationException("The parameter amount MUST be greater than or equal to 0.");
             if (!IsPayable(to) || from.AsBigInteger() != callscript.AsBigInteger())
-                return false;
-            if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
                 return false;
             StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset));
             var fromAmount = asset.Get(from).AsBigInteger(); //0.1
