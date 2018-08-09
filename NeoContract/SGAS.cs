@@ -250,6 +250,8 @@ namespace SGAS
             totalSupply -= preRefundValue;
             contract.Put("totalSupply", totalSupply); //1
 
+            SetTxInfo(from, null, preRefundValue);
+            Transferred(from, null, preRefundValue);
             Refunded(tx.Hash, from);
             return true;
         }
@@ -293,7 +295,7 @@ namespace SGAS
             if (from.Length != 20 || to.Length != 20)
                 throw new InvalidOperationException("The parameters from and to SHOULD be 20-byte addresses.");
             if (amount <= 0)
-                throw new InvalidOperationException("The parameter amount MUST be greater than or equal to 0.");
+                throw new InvalidOperationException("The parameter amount MUST be greater than 0.");
             if (ExecutionEngine.EntryScriptHash.AsBigInteger() != callscript.AsBigInteger())
                 return false;
             if (!IsPayable(to) || !Runtime.CheckWitness(from)/*0.2*/)
@@ -333,7 +335,7 @@ namespace SGAS
             if (from.Length != 20 || to.Length != 20)
                 throw new InvalidOperationException("The parameters from and to SHOULD be 20-byte addresses.");
             if (amount <= 0)
-                throw new InvalidOperationException("The parameter amount MUST be greater than or equal to 0.");
+                throw new InvalidOperationException("The parameter amount MUST be greater than 0.");
             if (!IsPayable(to) || from.AsBigInteger() != callscript.AsBigInteger())
                 return false;
             StorageMap asset = Storage.CurrentContext.CreateMap(nameof(asset));
