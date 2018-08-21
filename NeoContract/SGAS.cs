@@ -58,18 +58,19 @@ namespace SGAS
                     if (refe.AssetId.AsBigInteger() != AssetId.AsBigInteger())
                         return false;//Not allowed to operate assets other than GAS
 
-                    if (refe.ScriptHash.AsBigInteger() != currentHash.AsBigInteger())
-                        return false;//Not allowed to mingle with other addresses
-
-                    inputAmount += refe.Value;
+                    //if (refe.ScriptHash.AsBigInteger() != currentHash.AsBigInteger())
+                    //    return false;//Not allowed to mingle with other addresses
+                    if (refe.ScriptHash.AsBigInteger() == currentHash.AsBigInteger())
+                        inputAmount += refe.Value;
                 }
                 //Check that there is no money left this contract
                 BigInteger outputAmount = 0;
                 foreach (var output in outputs)
                 {
-                    if (output.ScriptHash.AsBigInteger() != currentHash.AsBigInteger())
-                        return false;
-                    outputAmount += output.Value;
+                    // if (output.ScriptHash.AsBigInteger() != currentHash.AsBigInteger())
+                    //     return false;
+                    if (output.ScriptHash.AsBigInteger() == currentHash.AsBigInteger())
+                        outputAmount += output.Value;
                 }
                 return outputAmount == inputAmount;
             }
@@ -161,14 +162,16 @@ namespace SGAS
             var tx = ExecutionEngine.ScriptContainer as Transaction;
 
             //Person who sends a global asset, receives a NEP5 asset
-            byte[] sender = null;
             var inputs = tx.GetReferences();
-            for (var i = 0; i < inputs.Length; i++)
+            byte[] sender = inputs[0].ScriptHash;
+            byte[] _sender = null;
+            for (var i = 1; i < inputs.Length; i++)
             {
                 if (inputs[i].AssetId.AsBigInteger() == AssetId.AsBigInteger())
                 {
-                    sender = inputs[i].ScriptHash;
-                    break;
+                    _sender = inputs[i].ScriptHash;
+                    if (sender != _sender)
+                        throw new InvalidAsynchronousStateException("Only one address allowed in input");
                 }
             }
             StorageMap contract = Storage.CurrentContext.CreateMap(nameof(contract));
@@ -316,7 +319,7 @@ namespace SGAS
             //Increase the payee balance
             var toAmount = asset.Get(to).AsBigInteger(); //0.1
             asset.Put(to, toAmount + amount); //1
-            
+
             SetTxInfo(from, to, amount);
             Transferred(from, to, amount);
             return true;
